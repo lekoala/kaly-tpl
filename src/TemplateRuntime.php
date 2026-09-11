@@ -134,7 +134,8 @@ final class TemplateRuntime implements HtmlView
                 'loop' => new Loop(
                     new LoopFrame($index, $currentKey, false, $previousItem, $item),
                     $length,
-                    $options->depth0,
+                    $options->baseDepth,
+                    $options->maxDepth,
                     $state,
                 ),
             ]);
@@ -156,7 +157,8 @@ final class TemplateRuntime implements HtmlView
             'loop' => new Loop(
                 new LoopFrame($index, $currentKey, true, $previousItem, null),
                 $length,
-                $options->depth0,
+                $options->baseDepth,
+                $options->maxDepth,
                 $state,
             ),
         ]);

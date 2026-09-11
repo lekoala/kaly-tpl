@@ -15,7 +15,8 @@ final readonly class Loop
     public function __construct(
         private LoopFrame $frame,
         private ?int $length,
-        private int $depth0,
+        private int $baseDepth,
+        private int $maxDepth,
         private LoopState $state,
     ) {}
 
@@ -80,12 +81,26 @@ final readonly class Loop
 
     public function depth(): int
     {
-        return $this->depth0 + 1;
+        return $this->baseDepth + 1;
     }
 
-    public function depth0(): int
+    /**
+     * Continue this loop one level deeper.
+     *
+     * Returns the {@see EachOptions} that render the current item's children at the next depth while
+     * preserving the recursion limit of this loop.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function nested(string $as = 'item', ?string $empty = null, array $data = []): EachOptions
     {
-        return $this->depth0;
+        return new EachOptions(
+            as: $as,
+            empty: $empty,
+            data: $data,
+            baseDepth: $this->depth(),
+            maxDepth: $this->maxDepth,
+        );
     }
 
     public function odd(): bool

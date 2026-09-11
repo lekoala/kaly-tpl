@@ -55,7 +55,8 @@ interface HtmlView
      *
      *     $v->each($items, 'item/card', as: 'item')
      *
-     * Pass {@see EachOptions} as the third argument for advanced options such as recursive depth.
+     * Pass {@see EachOptions} as the third argument for advanced options, or continue a recursive
+     * loop from an item template with {@see Loop::nested()}.
      *
      * @param iterable<mixed, mixed> $items
      * @param array<string, mixed> $data Extra data passed to every item template when using the short form.

@@ -56,21 +56,33 @@ $loop->even();
 $loop->cycle('odd', 'even');
 $loop->changed('group', $value);
 $loop->depth();
-$loop->depth0();
 ```
 
 `last()` works for generators by reading one item ahead. `length()` is available only for countable iterables.
 
 ## Recursion
 
-For recursive views, use `EachOptions` to carry the depth explicitly:
+When an item template renders its own children, continue the loop with `$loop->nested()`. It returns the options that
+render the children one level deeper while preserving the recursion limit of the current loop:
 
 ```php
-<?= $v->each(
-    $children,
-    'menu/item',
-    \Kaly\Tpl\EachOptions::as('item')->depth0($loop->depth()),
-) ?>
+<?php // menu/item.phtml ?>
+<?php $children = $item['children'] ?? [] ?>
+
+<?php if ($children !== []): ?>
+    <ul class="submenu">
+        <?= $v->each($children, 'menu/item', $loop->nested(as: 'item')) ?>
+    </ul>
+<?php endif ?>
 ```
 
-The default maximum depth is 50.
+Depth is 1-based: the first level is `$loop->depth() === 1`. The default maximum recursion depth is 50, so the deepest
+rendered level is `depth() === 50` and requesting children from that level throws. Set the limit on the root call, and
+`nested()` carries it through every level:
+
+```php
+<?= $v->each($tree, 'menu/item', \Kaly\Tpl\EachOptions::as('item')->maxDepth(10)) ?>
+```
+
+Because the loop itself carries the limit, a custom `maxDepth()` only has to be declared once, at the top.
+

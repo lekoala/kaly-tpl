@@ -111,6 +111,55 @@ final class ViewEngineTest extends TestCase
         $this->assertSame('a:more:odd;b:more:even;c:last:odd;', trim($html));
     }
 
+    public function testNestedLoopsTrackDepth(): void
+    {
+        $dir = $this->views([
+            'index.phtml' => '<?= $v->each($menu, "menu/item", as: "item") ?>',
+            'menu/item.phtml' => <<<'PHP'
+                <?= $v->e($item['label']) ?>:<?= $loop->depth() ?>;
+                <?= ($item['children'] ?? []) === [] ? '' : $v->each($item['children'], 'menu/item', $loop->nested(as: 'item')) ?>
+                PHP,
+        ]);
+
+        $menu = [
+            [
+                'label' => 'a',
+                'children' => [
+                    ['label' => 'a1', 'children' => [['label' => 'a1x']]],
+                ],
+            ],
+        ];
+
+        $html = (string) (new ViewEngine($dir))->render('index', ['menu' => $menu]);
+
+        $this->assertSame('a:1;a1:2;a1x:3;', preg_replace('/\s+/', '', $html));
+    }
+
+    public function testNestedLoopPreservesCustomRecursionLimit(): void
+    {
+        $dir = $this->views([
+            'index.phtml' => '<?= $v->each($menu, "menu/item", \Kaly\Tpl\EachOptions::as("item")->maxDepth(2)) ?>',
+            'menu/item.phtml' => <<<'PHP'
+                <?= $v->e($item['label']) ?>
+                <?= ($item['children'] ?? []) === [] ? '' : $v->each($item['children'], 'menu/item', $loop->nested(as: 'item')) ?>
+                PHP,
+        ]);
+
+        $menu = [
+            [
+                'label' => 'a',
+                'children' => [
+                    ['label' => 'a1', 'children' => [['label' => 'a1x']]],
+                ],
+            ],
+        ];
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Maximum loop depth of 2 exceeded.');
+
+        (new ViewEngine($dir))->render('index', ['menu' => $menu]);
+    }
+
     public function testItSupportsNamespacesAndTemplateExistenceChecks(): void
     {
         $root = $this->views(['index.phtml' => 'root']);

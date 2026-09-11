@@ -16,7 +16,7 @@ $children = $item['children'] ?? [];
 
     <?php if ($children !== []): ?>
         <ul class="submenu">
-            <?= $v->each($children, 'menu/item', \Kaly\Tpl\EachOptions::as('item')->depth0($loop->depth())) ?>
+            <?= $v->each($children, 'menu/item', $loop->nested(as: 'item')) ?>
         </ul>
     <?php endif ?>
 </li>
