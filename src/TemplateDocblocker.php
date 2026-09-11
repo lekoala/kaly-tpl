@@ -80,23 +80,59 @@ final readonly class TemplateDocblocker
             return $contents;
         }
 
-        if (preg_match('/^<\?php\s*\/\*\*(.*?)\*\/\s*\?>\s*/s', $contents, $matches, PREG_OFFSET_CAPTURE)) {
-            $full = $matches[0][0];
-            $body = $matches[1][0];
+        $managed = $this->extractManagedDocblock($contents);
 
-            if (!str_contains($body, self::MARKER)) {
-                return $contents;
-            }
-
+        if ($managed !== null) {
             if (!$this->syncManagedBlocks) {
                 return $contents;
             }
 
-            $merged = $this->mergeVariables($this->variablesFromDocblock($body), $vars);
-            return $this->buildBlock($merged) . substr($contents, strlen($full));
+            $merged = $this->mergeVariables($this->variablesFromDocblock($managed), $vars);
+
+            return $this->composeHeader($this->stripManagedHeader($contents), $this->buildDocblock($merged));
         }
 
-        return $this->buildBlock($vars) . $contents;
+        return $this->composeHeader($contents, $this->buildDocblock($vars));
+    }
+
+    private function extractManagedDocblock(string $contents): ?string
+    {
+        if (preg_match('/\A<\?php[ \t]*(?:\r?\n[ \t]*)*(\/\*\*.*?@kaly-template.*?\*\/)/s', $contents, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
+    private function stripManagedHeader(string $contents): string
+    {
+        $stripped = preg_replace(
+            '/\A<\?php[ \t]*(?:\r?\n[ \t]*)*\/\*\*.*?@kaly-template.*?\*\/[ \t]*(?:\r?\n[ \t]*)*\?>(?:[ \t]*\r?\n)?/s',
+            '',
+            $contents,
+            1,
+        );
+        if ($stripped !== null && $stripped !== $contents) {
+            return $stripped;
+        }
+
+        $stripped = preg_replace(
+            '/\A<\?php[ \t]*(?:\r?\n[ \t]*)*\/\*\*.*?@kaly-template.*?\*\/(?:[ \t]*\r?\n)?/s',
+            '<?php',
+            $contents,
+            1,
+        );
+
+        return $stripped ?? $contents;
+    }
+
+    private function composeHeader(string $body, string $docblock): string
+    {
+        if (str_starts_with($body, '<?php')) {
+            return '<?php' . "\n" . $docblock . "\n" . substr($body, strlen('<?php'));
+        }
+
+        return '<?php' . "\n" . $docblock . "\n?>\n" . $body;
     }
 
     private function hasViewRuntimeDocblock(string $contents): bool
@@ -142,36 +178,40 @@ final readonly class TemplateDocblocker
                 continue;
             }
 
-            $current = $existing[$name] ?? null;
-            $seen = $observed[$name] ?? null;
-
-            if ($current === null) {
-                $merged[$name] = $seen ?? 'mixed';
-                continue;
-            }
-
-            if ($seen === null || $seen === 'mixed' || $seen === 'array') {
-                $merged[$name] = $current;
-                continue;
-            }
-
-            if ($seen === 'null' && !str_contains($current, 'null')) {
-                $merged[$name] = $current . '|null';
-                continue;
-            }
-
-            $merged[$name] = $current;
+            $merged[$name] = $this->mergeTypes($existing[$name] ?? null, $observed[$name] ?? null);
         }
 
         return $merged;
     }
 
+    private function mergeTypes(?string $existing, ?string $observed): string
+    {
+        $types = [];
+
+        foreach ([$existing, $observed] as $type) {
+            if ($type === null || $type === '') {
+                continue;
+            }
+
+            foreach (explode('|', $type) as $token) {
+                $token = trim($token);
+                if ($token !== '') {
+                    $types[$token] = true;
+                }
+            }
+        }
+
+        if (count($types) > 1) {
+            unset($types['mixed']);
+        }
+
+        return $types === [] ? 'mixed' : implode('|', array_keys($types));
+    }
+
     /** @param array<string, string> $vars */
-    private function buildBlock(array $vars): string
+    private function buildDocblock(array $vars): string
     {
         $lines = [
-            '<?php',
-            '',
             '/**',
             ' * ' . self::MARKER,
         ];
@@ -181,8 +221,6 @@ final readonly class TemplateDocblocker
         }
 
         $lines[] = ' */';
-        $lines[] = '?>';
-        $lines[] = '';
 
         return implode("\n", $lines);
     }

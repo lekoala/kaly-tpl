@@ -90,13 +90,19 @@ final class RenderContext
 
         $capture = $this->captures[count($this->captures) - 1];
         if (ob_get_level() !== $capture['level']) {
-            throw new \LogicException(sprintf('View capture "%s" cannot be closed from another output scope.', $capture['name']));
+            throw new \LogicException(sprintf(
+                'View capture "%s" cannot be closed from another output scope.',
+                $capture['name'],
+            ));
         }
 
         array_pop($this->captures);
         $buffer = ob_get_clean();
         if ($buffer === false) {
-            throw new \LogicException(sprintf('Output buffer for view capture "%s" is not available.', $capture['name']));
+            throw new \LogicException(sprintf(
+                'Output buffer for view capture "%s" is not available.',
+                $capture['name'],
+            ));
         }
 
         $html = new Html($buffer);

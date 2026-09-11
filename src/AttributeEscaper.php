@@ -6,6 +6,12 @@ namespace Kaly\Tpl;
 
 /**
  * Renders HTML attribute bags and related values using an {@see Escaper}.
+ *
+ * Attribute sanitization branches over the URL, boolean, class, style and list
+ * categories, so the class-level cyclomatic complexity is inherently above the
+ * generic threshold.
+ *
+ * @mago-expect lint:cyclomatic-complexity
  */
 final class AttributeEscaper
 {
@@ -75,7 +81,10 @@ final class AttributeEscaper
 
             $normalizedName = strtolower($name);
             if (str_starts_with($normalizedName, 'on') || $normalizedName === 'srcdoc') {
-                throw new \InvalidArgumentException(sprintf('Attribute "%s" requires a dedicated output context.', $name));
+                throw new \InvalidArgumentException(sprintf(
+                    'Attribute "%s" requires a dedicated output context.',
+                    $name,
+                ));
             }
 
             if (in_array($normalizedName, self::URL_ATTRIBUTES, true)) {
@@ -196,7 +205,10 @@ final class AttributeEscaper
                 continue;
             }
 
-            throw new \InvalidArgumentException(sprintf('Cannot render attribute list item from %s.', get_debug_type($item)));
+            throw new \InvalidArgumentException(sprintf(
+                'Cannot render attribute list item from %s.',
+                get_debug_type($item),
+            ));
         }
 
         return implode(' ', $items);

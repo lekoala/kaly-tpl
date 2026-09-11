@@ -32,15 +32,10 @@ final readonly class DefaultValueFormatter implements ValueFormatter
             return '';
         }
 
-        return $this->formatDateTime(
-            $date,
-            'none',
-            $style,
-            match ($style) {
-                'medium', 'long', 'full' => 'H:i:s',
-                default => 'H:i',
-            },
-        );
+        return $this->formatDateTime($date, 'none', $style, match ($style) {
+            'medium', 'long', 'full' => 'H:i:s',
+            default => 'H:i',
+        });
     }
 
     public function datetime(\DateTimeInterface|string|null $value, string $style = 'medium'): string
@@ -121,13 +116,15 @@ final readonly class DefaultValueFormatter implements ValueFormatter
             return null;
         }
 
-        if ($value instanceof \DateTimeInterface) {
-            return $this->timezone === null
-                ? $value
-                : \DateTimeImmutable::createFromInterface($value)->setTimezone($this->timezone);
+        $date = $value instanceof \DateTimeInterface
+            ? \DateTimeImmutable::createFromInterface($value)
+            : new \DateTimeImmutable($value, $this->timezone);
+
+        if ($this->timezone === null) {
+            return $date;
         }
 
-        return new \DateTimeImmutable($value, $this->timezone);
+        return $date->setTimezone($this->timezone);
     }
 
     private function formatDateTime(

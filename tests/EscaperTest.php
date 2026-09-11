@@ -47,7 +47,6 @@ final class EscaperTest extends TestCase
         $this->assertSame(' disabled aria-expanded="false" data-active="true"', $attributes);
     }
 
-
     public function testAttributeBagUsesUrlPolicyAndRejectsDedicatedScriptContexts(): void
     {
         $escaper = new DefaultEscaper();

@@ -104,7 +104,7 @@ final class ViewEngine
         try {
             $this->resolve($template);
             return true;
-        } catch (\InvalidArgumentException | \RuntimeException) {
+        } catch (\InvalidArgumentException|\RuntimeException) {
             return false;
         }
     }
@@ -129,7 +129,7 @@ final class ViewEngine
             if ($layoutDepth > self::MAX_LAYOUT_DEPTH) {
                 throw new \LogicException(sprintf('Maximum layout depth of %d exceeded.', self::MAX_LAYOUT_DEPTH));
             }
-            if (isset($seenLayouts[$nextLayout])) {
+            if (array_key_exists($nextLayout, $seenLayouts)) {
                 throw new \LogicException(sprintf('Circular layout chain detected at "%s".', $nextLayout));
             }
             $seenLayouts[$nextLayout] = true;
@@ -179,7 +179,7 @@ final class ViewEngine
                 require $__kalyFile;
 
                 $__kalyContext->assertSameCaptures($__kalySnapshot);
-                if (ob_get_level() !== $__kalyBufferLevel + 1) {
+                if (ob_get_level() !== ($__kalyBufferLevel + 1)) {
                     throw new \LogicException('Template changed the output buffer stack unexpectedly.');
                 }
 
