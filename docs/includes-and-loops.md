@@ -62,8 +62,8 @@ $loop->depth();
 
 ## Recursion
 
-When an item template renders its own children, continue the loop with `$loop->nested()`. It returns the options that
-render the children one level deeper while preserving the recursion limit of the current loop:
+When an item template renders its own children, continue the loop with `$loop->nested()`. It continues the current
+recursive loop one level deeper and preserves its maximum depth:
 
 ```php
 <?php // menu/item.phtml ?>
@@ -76,13 +76,17 @@ render the children one level deeper while preserving the recursion limit of the
 <?php endif ?>
 ```
 
-Depth is 1-based: the first level is `$loop->depth() === 1`. The default maximum recursion depth is 50, so the deepest
-rendered level is `depth() === 50` and requesting children from that level throws. Set the limit on the root call, and
-`nested()` carries it through every level:
+Depth is 1-based. The root level has `depth() === 1`, and the default maximum depth is 50. To use a different limit,
+configure the root call once; `nested()` propagates it automatically:
 
 ```php
-<?= $v->each($tree, 'menu/item', \Kaly\Tpl\EachOptions::as('item')->maxDepth(10)) ?>
+<?php use Kaly\Tpl\EachOptions ?>
+
+<?= $v->each(
+    $tree,
+    'menu/item',
+    EachOptions::as('item')->maxDepth(10),
+) ?>
 ```
 
-Because the loop itself carries the limit, a custom `maxDepth()` only has to be declared once, at the top.
 
