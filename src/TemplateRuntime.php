@@ -180,7 +180,8 @@ final class TemplateRuntime implements HtmlView
         return new EachOptions(as: $as, empty: $empty, data: $data);
     }
 
-    public function layout(string $template): void
+    /** @param array<string, mixed> $data */
+    public function layout(string $template, array $data = []): void
     {
         if (!$this->allowLayout) {
             throw new \LogicException(
@@ -188,7 +189,7 @@ final class TemplateRuntime implements HtmlView
             );
         }
 
-        $this->context->setLayout($template);
+        $this->context->setLayout($template, $data);
     }
 
     public function title(?string $title = null): string

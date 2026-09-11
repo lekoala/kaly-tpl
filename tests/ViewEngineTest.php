@@ -6,6 +6,7 @@ namespace Kaly\Tpl\Tests;
 
 use Kaly\Tpl\TemplateDocblocker;
 use Kaly\Tpl\ViewEngine;
+use Kaly\Tpl\ViewException;
 use PHPUnit\Framework\TestCase;
 
 final class ViewEngineTest extends TestCase
@@ -43,6 +44,49 @@ final class ViewEngineTest extends TestCase
 
         $this->assertStringContainsString('<title>Patients &lt;unsafe&gt;</title>', $html);
         $this->assertStringContainsString('<h1>Joséphine &lt;script&gt;</h1>', $html);
+    }
+
+    public function testTemplateCanPassExplicitDataToItsLayout(): void
+    {
+        $dir = $this->views([
+            'index.phtml' => <<<'PHP'
+                <?php $v->layout('layouts/app', ['currentUser' => $user]) ?>
+                content
+                PHP,
+            'layouts/app.phtml' => '<?= $v->e($currentUser["name"]) ?>|<?= $v->content() ?>',
+        ]);
+
+        $html = (string) (new ViewEngine($dir))->render('index', ['user' => ['name' => 'Ada']]);
+
+        $this->assertSame('Ada|content', preg_replace('/\s+/', '', $html));
+    }
+
+    public function testCallerCanPassDataToTheLayout(): void
+    {
+        $dir = $this->views([
+            'index.phtml' => 'page',
+            'layouts/app.phtml' => '<?= $v->e($label) ?>|<?= $v->content() ?>',
+        ]);
+
+        $html = (string) (new ViewEngine($dir))->render('index', layout: 'layouts/app', layoutData: [
+            'label' => 'Title',
+        ]);
+
+        $this->assertSame('Title|page', $html);
+    }
+
+    public function testLayoutDataCannotOverrideContent(): void
+    {
+        $dir = $this->views([
+            'index.phtml' => 'page',
+            'layouts/app.phtml' => '<?= $content ?>',
+        ]);
+
+        $html = (string) (new ViewEngine($dir))->render('index', layout: 'layouts/app', layoutData: [
+            'content' => 'bad',
+        ]);
+
+        $this->assertSame('page', $html);
     }
 
     public function testEachSupportsGeneratorsAndLookaheadLoopMetadata(): void
@@ -93,13 +137,74 @@ final class ViewEngineTest extends TestCase
         try {
             $view->render('bad');
             $this->fail('Expected the template exception to be rethrown.');
-        } catch (\RuntimeException $exception) {
-            $this->assertSame('boom', $exception->getMessage());
+        } catch (ViewException $exception) {
+            $this->assertSame('boom', $exception->getPrevious()?->getMessage());
+            $this->assertSame(['bad'], $exception->templateStack());
+            $this->assertStringContainsString('template chain: bad', $exception->getMessage());
         }
 
         $this->assertSame($level, ob_get_level());
         $this->assertSame('good', (string) $view->render('good'));
         $this->assertSame($level, ob_get_level());
+    }
+
+    public function testNestedIncludeFailuresExposeTheTemplateChain(): void
+    {
+        $dir = $this->views([
+            'users/index.phtml' => "<?= \$v->inc('users/card') ?>",
+            'users/card.phtml' => "<?= \$v->inc('partials/avatar') ?>",
+            'partials/avatar.phtml' => '<?php throw new \RuntimeException("avatar failed") ?>',
+        ]);
+
+        try {
+            (new ViewEngine($dir))->render('users/index');
+            $this->fail('Expected the include failure to be rethrown.');
+        } catch (ViewException $exception) {
+            $this->assertSame('avatar failed', $exception->getPrevious()?->getMessage());
+            $this->assertSame(['users/index', 'users/card', 'partials/avatar'], $exception->templateStack());
+            $this->assertStringContainsString('users/index > users/card > partials/avatar', $exception->getMessage());
+        }
+    }
+
+    public function testCaughtPartialFailureDoesNotLeakIntoALaterErrorChain(): void
+    {
+        $dir = $this->views([
+            'index.phtml' => <<<'PHP'
+                <?php try { $v->inc('recoverable'); } catch (\RuntimeException) {} ?>
+                <?php $v->inc('failing') ?>
+                PHP,
+            'recoverable.phtml' => '<?php throw new \RuntimeException("recoverable") ?>',
+            'failing.phtml' => '<?php throw new \RuntimeException("fatal") ?>',
+        ]);
+
+        try {
+            (new ViewEngine($dir))->render('index');
+            $this->fail('Expected the render to fail.');
+        } catch (ViewException $exception) {
+            $this->assertSame('fatal', $exception->getPrevious()?->getMessage());
+            $this->assertSame(['index', 'failing'], $exception->templateStack());
+        }
+    }
+
+    public function testEngineCanRenderRepeatedlyAndAfterFailures(): void
+    {
+        $dir = $this->views([
+            'index.phtml' => '<?= $v->e($name) ?>',
+            'bad.phtml' => '<?php throw new \RuntimeException("boom") ?>',
+        ]);
+        $view = (new ViewEngine($dir))->addGlobal('appName', 'App');
+
+        $this->assertSame('a', (string) $view->render('index', ['name' => 'a']));
+        $this->assertSame('b', (string) $view->render('index', ['name' => 'b']));
+
+        try {
+            $view->render('bad');
+            $this->fail('Expected the failing template to throw.');
+        } catch (ViewException $exception) {
+            $this->assertSame('boom', $exception->getPrevious()?->getMessage());
+        }
+
+        $this->assertSame('c', (string) $view->render('index', ['name' => 'c']));
     }
 
     public function testUnclosedCaptureFailsWithoutLeakingOutputBuffers(): void

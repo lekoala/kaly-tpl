@@ -12,6 +12,10 @@ namespace Kaly\Tpl;
 final class RenderContext
 {
     private ?string $layout = null;
+
+    /** @var array<string, mixed> */
+    private array $layoutData = [];
+
     private string $title = '';
 
     /** @var array<string, Html> */
@@ -23,9 +27,11 @@ final class RenderContext
     /** @var list<array{type: 'block'|'stack', name: string, level: int}> */
     private array $captures = [];
 
-    public function setLayout(string $template): void
+    /** @param array<string, mixed> $data */
+    public function setLayout(string $template, array $data = []): void
     {
         $this->layout = $template;
+        $this->layoutData = $data;
     }
 
     public function consumeLayout(): ?string
@@ -34,6 +40,15 @@ final class RenderContext
         $this->layout = null;
 
         return $layout;
+    }
+
+    /** @return array<string, mixed> */
+    public function consumeLayoutData(): array
+    {
+        $data = $this->layoutData;
+        $this->layoutData = [];
+
+        return $data;
     }
 
     public function setTitle(string $title): void
@@ -142,6 +157,7 @@ final class RenderContext
     public function restore(self $snapshot): void
     {
         $this->layout = $snapshot->layout;
+        $this->layoutData = $snapshot->layoutData;
         $this->title = $snapshot->title;
         $this->blocks = $snapshot->blocks;
         $this->stacks = $snapshot->stacks;

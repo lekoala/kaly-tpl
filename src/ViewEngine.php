@@ -20,6 +20,12 @@ final class ViewEngine
     /** @var array<string, mixed> */
     private array $globals = [];
 
+    /** @var list<string> */
+    private array $templateStack = [];
+
+    /** @var \WeakMap<\Throwable, list<string>> */
+    private \WeakMap $failureStacks;
+
     private string $extension;
     private bool $debug = false;
     private ?TemplateDocblocker $docblocker = null;
@@ -32,6 +38,7 @@ final class ViewEngine
         $this->addPath('', $viewsPath);
         $this->escaper = new DefaultEscaper();
         $this->formatter = new DefaultValueFormatter();
+        $this->failureStacks = new \WeakMap();
     }
 
     public function debug(bool $enabled = true): self
@@ -109,37 +116,50 @@ final class ViewEngine
         }
     }
 
-    /** @param array<string, mixed> $data */
-    public function render(string $template, array $data = [], ?string $layout = null): Html
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $layoutData
+     */
+    public function render(string $template, array $data = [], ?string $layout = null, array $layoutData = []): Html
     {
-        $context = new RenderContext();
-        if ($layout !== null) {
-            $context->setLayout($layout);
-        }
-
-        $content = $this->renderTemplate($template, $data, $context, allowLayout: true);
-        $context->setBlock('content', $content);
-
-        /** @var array<string, true> $seenLayouts */
-        $seenLayouts = [];
-        $layoutDepth = 0;
-
-        while (($nextLayout = $context->consumeLayout()) !== null) {
-            $layoutDepth++;
-            if ($layoutDepth > self::MAX_LAYOUT_DEPTH) {
-                throw new \LogicException(sprintf('Maximum layout depth of %d exceeded.', self::MAX_LAYOUT_DEPTH));
+        try {
+            $context = new RenderContext();
+            if ($layout !== null) {
+                $context->setLayout($layout, $layoutData);
             }
-            if (array_key_exists($nextLayout, $seenLayouts)) {
-                throw new \LogicException(sprintf('Circular layout chain detected at "%s".', $nextLayout));
-            }
-            $seenLayouts[$nextLayout] = true;
 
-            $content = $this->renderTemplate($nextLayout, ['content' => $content], $context, allowLayout: true);
+            $content = $this->renderTemplate($template, $data, $context, allowLayout: true);
             $context->setBlock('content', $content);
-        }
 
-        $context->assertClosed();
-        return $content;
+            /** @var array<string, true> $seenLayouts */
+            $seenLayouts = [];
+            $layoutDepth = 0;
+
+            while (($nextLayout = $context->consumeLayout()) !== null) {
+                $layoutDepth++;
+                if ($layoutDepth > self::MAX_LAYOUT_DEPTH) {
+                    throw new \LogicException(sprintf('Maximum layout depth of %d exceeded.', self::MAX_LAYOUT_DEPTH));
+                }
+                if (array_key_exists($nextLayout, $seenLayouts)) {
+                    throw new \LogicException(sprintf('Circular layout chain detected at "%s".', $nextLayout));
+                }
+                $seenLayouts[$nextLayout] = true;
+
+                $content = $this->renderTemplate(
+                    $nextLayout,
+                    [...$context->consumeLayoutData(), 'content' => $content],
+                    $context,
+                    allowLayout: true,
+                );
+                $context->setBlock('content', $content);
+            }
+
+            $context->assertClosed();
+
+            return $content;
+        } catch (\Throwable $exception) {
+            throw ViewException::wrap($exception, $this->failureStacks[$exception] ?? []);
+        }
     }
 
     /** @param array<string, mixed> $data */
@@ -200,7 +220,18 @@ final class ViewEngine
             }
         };
 
-        return $render($file, $data, $context, $snapshot, $bufferLevel);
+        $this->templateStack[] = $template;
+
+        try {
+            return $render($file, $data, $context, $snapshot, $bufferLevel);
+        } catch (\Throwable $exception) {
+            if (!$this->failureStacks->offsetExists($exception)) {
+                $this->failureStacks[$exception] = $this->templateStack;
+            }
+            throw $exception;
+        } finally {
+            array_pop($this->templateStack);
+        }
     }
 
     /**

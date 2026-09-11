@@ -68,7 +68,12 @@ interface HtmlView
         array $data = [],
     ): Html;
 
-    public function layout(string $template): void;
+    /**
+     * Select the layout for the current render, optionally passing it explicit data.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function layout(string $template, array $data = []): void;
 
     public function title(?string $title = null): string;
 
