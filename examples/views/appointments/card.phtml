@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @var \Kaly\Tpl\HtmlView $v
+ * @var array{patient: string, startsAt: \DateTimeInterface, status: string, amount: float|int} $appointment
+ * @var \Kaly\Tpl\Loop $loop
+ */
+?>
+<?php if ($loop->changed('status', $appointment['status'])): ?>
+    <h2 class="muted"><?= $v->e(ucfirst($appointment['status'])) ?></h2>
+<?php endif ?>
+
+<article<?= $v->attrs([
+    'class' => ['card', 'is-first' => $loop->first(), $loop->cycle('odd', 'even')],
+    'data-index' => $loop->index(),
+    'data-key' => (string) $loop->key(),
+]) ?>>
+    <h3><?= $v->e($appointment['patient']) ?></h3>
+    <p><?= $v->datetime($appointment['startsAt']) ?></p>
+    <p><span class="badge"><?= $v->e($appointment['status']) ?></span></p>
+    <p><?= $v->money($appointment['amount']) ?></p>
+
+    <?php if ($loop->hasNext()): ?>
+        <p class="muted">Prochain : <?= $v->e($loop->next()['patient']) ?></p>
+    <?php endif ?>
+</article>

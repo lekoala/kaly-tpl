@@ -1,0 +1,62 @@
+<?php
+
+/**
+ * @var \Kaly\Tpl\HtmlView $v
+ * @var iterable<string, array{patient: string, startsAt: \DateTimeInterface, status: string, amount: float|int}> $appointments
+ */
+$v->title('Rendez-vous');
+?>
+<?php $v->push('head') ?>
+<style>
+    body {
+        font-family: system-ui, sans-serif;
+        margin: 2rem;
+    }
+
+    .layout {
+        display: grid;
+        grid-template-columns: minmax(12rem, 18rem) 1fr;
+        gap: 2rem;
+    }
+
+    .menu,
+    .submenu {
+        display: grid;
+        gap: .35rem;
+        padding-inline-start: 1rem;
+    }
+
+    .cards {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .card {
+        border: 1px solid #ddd;
+        border-radius: .75rem;
+        padding: 1rem;
+    }
+
+    .muted {
+        color: #666;
+    }
+
+    .badge {
+        border: 1px solid #ccc;
+        border-radius: 999px;
+        padding: .15rem .5rem;
+    }
+</style>
+<?php $v->end() ?>
+
+<h1><?= $v->e('Rendez-vous') ?></h1>
+
+<section class="cards">
+    <?= $v->each($appointments, 'appointments/card', as: 'appointment', empty: 'appointments/empty') ?>
+</section>
+
+<?php $v->push('scripts') ?>
+<script type="application/json" id="page-meta">
+    <?= $v->json(['renderedAt' => (new \DateTimeImmutable())->format(DATE_ATOM)]) ?>
+</script>
+<?php $v->end() ?>

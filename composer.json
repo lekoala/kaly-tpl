@@ -1,0 +1,49 @@
+{
+    "name": "lekoala/kaly-tpl",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Thomas",
+            "email": "thomas@lekoala.be"
+        }
+    ],
+    "description": "Lightweight native PHP template renderer with explicit escaping, isolated includes and native IDE-friendly view helpers.",
+    "require": {
+        "php": "^8.3"
+    },
+    "require-dev": {
+        "carthage-software/mago": "^1",
+        "composer/ca-bundle": "^1.5",
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^11"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kaly\\Tpl\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kaly\\Tpl\\Tests\\": "tests"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "demo": "@php examples/demo.php",
+        "test": [
+            "@phpunit",
+            "@phpstan",
+            "@mago:lint",
+            "@mago:format"
+        ],
+        "phpunit": "@php -d zend.assertions=1 vendor/bin/phpunit",
+        "phpstan": "phpstan analyse src --memory-limit=-1",
+        "mago:lint": "mago lint --minimum-report-level warning src tests",
+        "mago:format": "mago fmt --check",
+        "fmt": "mago fmt"
+    },
+    "prefer-stable": true
+}

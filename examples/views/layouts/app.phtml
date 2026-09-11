@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * @var \Kaly\Tpl\HtmlView $v
+ * @var \Kaly\Tpl\Html $content
+ * @var string $appName
+ * @var list<array{label: string, url: string, children: array}> $menu
+ */
+?>
+<!doctype html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= $v->e($v->title() ?: $appName) ?></title>
+    <?= $v->stack('head') ?>
+</head>
+
+<body>
+    <header>
+        <strong><?= $v->e($appName) ?></strong>
+    </header>
+
+    <div class="layout">
+        <aside>
+            <nav aria-label="Navigation principale">
+                <ul class="menu">
+                    <?= $v->each($menu, 'menu/item', as: 'item') ?>
+                </ul>
+            </nav>
+        </aside>
+
+        <main>
+            <?= $v->content() ?>
+        </main>
+    </div>
+
+    <?= $v->stack('scripts') ?>
+</body>
+
+</html>

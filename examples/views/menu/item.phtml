@@ -1,0 +1,22 @@
+<?php
+
+/**
+ * @var \Kaly\Tpl\HtmlView $v
+ * @var array{label: string, url: string, children: array} $item
+ * @var \Kaly\Tpl\Loop $loop
+ */
+
+$children = $item['children'] ?? [];
+?>
+<li<?= $v->attrs([
+    'class' => ['menu-item', 'has-children' => $children !== []],
+    'data-depth' => $loop->depth(),
+]) ?>>
+    <a href="<?= $v->url($item['url']) ?>"><?= $v->e($item['label']) ?></a>
+
+    <?php if ($children !== []): ?>
+        <ul class="submenu">
+            <?= $v->each($children, 'menu/item', \Kaly\Tpl\EachOptions::as('item')->depth0($loop->depth())) ?>
+        </ul>
+    <?php endif ?>
+</li>
