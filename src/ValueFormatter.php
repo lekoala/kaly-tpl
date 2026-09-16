@@ -26,4 +26,13 @@ interface ValueFormatter
      * Format a ratio as a percentage. Example: 0.42 => 42%.
      */
     public function percent(int|float|string|null $value, int $decimals = 0): string;
+
+    /**
+     * Format a duration in seconds. Example: 3723 => 1:02:03.
+     *
+     * Durations are locale-neutral by design. `DateInterval` values are accepted when they
+     * resolve to a fixed number of seconds; calendar-relative intervals (years or months
+     * without a `days` total) are rejected.
+     */
+    public function duration(\DateInterval|int|float|string|null $value, string $style = 'short'): string;
 }

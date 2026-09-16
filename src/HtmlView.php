@@ -45,6 +45,9 @@ interface HtmlView
     /** Format a ratio as a percentage. Example: 0.42 => 42%. */
     public function percent(int|float|string|null $value, int $decimals = 0): Html;
 
+    /** Format a duration in seconds. Example: 3723 => 1:02:03. */
+    public function duration(\DateInterval|int|float|string|null $value, string $style = 'short'): Html;
+
     /** @param array<string, mixed> $data */
     public function inc(string $template, array $data = []): Html;
 

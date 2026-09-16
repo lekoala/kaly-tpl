@@ -43,6 +43,57 @@ final class ValueFormatterTest extends TestCase
         $formatter->percent(0.42, -1);
     }
 
+    public function testDurationFormatsSecondsDeterministically(): void
+    {
+        $formatter = new DefaultValueFormatter();
+
+        $this->assertSame('0:00', $formatter->duration(0));
+        $this->assertSame('0:45', $formatter->duration(45));
+        $this->assertSame('1:30', $formatter->duration(90));
+        $this->assertSame('1:02:03', $formatter->duration(3723));
+        $this->assertSame('25:01:01', $formatter->duration(90_061));
+        $this->assertSame('-1:30', $formatter->duration(-90));
+        $this->assertSame('1:02:03', $formatter->duration('3723'));
+    }
+
+    public function testDurationLongStyleSpellsOutUnits(): void
+    {
+        $formatter = new DefaultValueFormatter();
+
+        $this->assertSame('0 s', $formatter->duration(0, 'long'));
+        $this->assertSame('45 s', $formatter->duration(45, 'long'));
+        $this->assertSame('1 min 30 s', $formatter->duration(90, 'long'));
+        $this->assertSame('1 h 2 min 3 s', $formatter->duration(3723, 'long'));
+        $this->assertSame('1 d 1 h 1 min 1 s', $formatter->duration(90_061, 'long'));
+    }
+
+    public function testDurationAcceptsFixedIntervals(): void
+    {
+        $formatter = new DefaultValueFormatter();
+
+        $this->assertSame('1:02:03', $formatter->duration(new \DateInterval('PT1H2M3S')));
+        $this->assertSame('24:00:00', $formatter->duration(new \DateInterval('P1D')));
+
+        $diff = (new \DateTimeImmutable('2026-01-01'))->diff(new \DateTimeImmutable('2026-01-03'));
+        $this->assertSame('48:00:00', $formatter->duration($diff));
+    }
+
+    public function testCalendarRelativeIntervalsAreRejectedAsDurations(): void
+    {
+        $formatter = new DefaultValueFormatter();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $formatter->duration(new \DateInterval('P1M'));
+    }
+
+    public function testUnknownDurationStylesAreRejected(): void
+    {
+        $formatter = new DefaultValueFormatter();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $formatter->duration(90, 'medium');
+    }
+
     public function testFallbackDateFormattingAppliesConfiguredTimezoneToStrings(): void
     {
         $autoload = var_export(dirname(__DIR__) . '/vendor/autoload.php', true);

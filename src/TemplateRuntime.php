@@ -95,6 +95,11 @@ final class TemplateRuntime implements HtmlView
         return new Html($this->e($this->formatter->percent($value, $decimals)));
     }
 
+    public function duration(\DateInterval|int|float|string|null $value, string $style = 'short'): Html
+    {
+        return new Html($this->e($this->formatter->duration($value, $style)));
+    }
+
     public function inc(string $template, array $data = []): Html
     {
         return $this->engine->renderPartial($template, $data, $this->context);

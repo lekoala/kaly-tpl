@@ -110,6 +110,19 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         return number_format($ratio * 100, $decimals, '.', ',') . '%';
     }
 
+    public function duration(\DateInterval|int|float|string|null $value, string $style = 'short'): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        $seconds = $value instanceof \DateInterval
+            ? DurationFormatter::intervalSeconds($value)
+            : $this->numericValue($value);
+
+        return DurationFormatter::render($seconds, $style);
+    }
+
     private function dateValue(\DateTimeInterface|string|null $value): ?\DateTimeInterface
     {
         if ($value === null || $value === '') {
