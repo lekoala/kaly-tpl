@@ -55,27 +55,161 @@ final class RenderScopeTest extends TestCase
         $this->assertSame('empty:T', $html);
     }
 
-    public function testSharedDataOverridesHomonymousLocal(): void
+    /**
+     * @return iterable<string, array{array<string, string>, array<string, mixed>, list<string>, string}>
+     */
+    public static function sharedCollisionProvider(): iterable
     {
-        $dir = $this->views(['index.phtml' => '<?= $v->e($who) ?>']);
+        $layout = ['index.phtml' => 'page', 'layouts/app.phtml' => '<?= $v->content() ?>'];
 
-        $html = (string) (new ViewEngine($dir))->render('index', ['who' => 'local'], sharedData: ['who' => 'shared']);
-
-        $this->assertSame('shared', $html);
+        yield 'root data' => [
+            ['index.phtml' => 'ok'],
+            ['data' => ['url' => 'local']],
+            ['url'],
+            'index',
+        ];
+        yield 'inc data' => [
+            ['index.phtml' => '<?= $v->inc("card", ["url" => "local"]) ?>', 'card.phtml' => 'card'],
+            [],
+            ['url'],
+            'index > card',
+        ];
+        yield 'layout() data' => [
+            [
+                'index.phtml' => '<?php $v->layout("layouts/app", ["url" => "local"]) ?>page',
+                'layouts/app.phtml' => '<?= $v->content() ?>',
+            ],
+            [],
+            ['url'],
+            'layouts/app',
+        ];
+        yield 'render() layoutData' => [
+            $layout,
+            [
+                'layout' => 'layouts/app',
+                'layoutData' => [
+                    'url' => 'local',
+                ],
+            ],
+            ['url'],
+            'layouts/app',
+        ];
+        yield 'layout content' => [$layout, ['layout' => 'layouts/app'], ['content'], 'layouts/app'];
+        yield 'each item' => [
+            ['index.phtml' => '<?= $v->each([1, 2], "item", as: "row") ?>', 'item.phtml' => 'item'],
+            [],
+            ['row'],
+            'index > item',
+        ];
+        yield 'each key' => [
+            ['index.phtml' => '<?= $v->each([1, 2], "item") ?>', 'item.phtml' => 'item'],
+            [],
+            ['key'],
+            'index > item',
+        ];
+        yield 'each loop' => [
+            ['index.phtml' => '<?= $v->each([1, 2], "item") ?>', 'item.phtml' => 'item'],
+            [],
+            ['loop'],
+            'index > item',
+        ];
     }
 
-    public function testSharedDataCannotOverrideLayoutContent(): void
+    /**
+     * @param array<string, string> $files
+     * @param array<string, mixed> $args
+     * @param list<string> $sharedNames
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('sharedCollisionProvider')]
+    public function testSharedDataCannotCollideWithTemplateLocals(
+        array $files,
+        array $args,
+        array $sharedNames,
+        string $chain,
+    ): void {
+        $view = new ViewEngine($this->views($files));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage(sprintf(
+            'Template data conflicts with shared render data: "%s" (template chain: %s).',
+            implode('", "', $sharedNames),
+            $chain,
+        ));
+
+        $view->render('index', ...[...$args, 'sharedData' => array_fill_keys($sharedNames, 'shared')]);
+    }
+
+    public function testCollisionMessageListsEveryNameSorted(): void
+    {
+        $view = new ViewEngine($this->views(['index.phtml' => 'ok']));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage(
+            'Template data conflicts with shared render data: "csrf", "url" (template chain: index).',
+        );
+
+        $view->render('index', ['url' => 1, 'csrf' => 2, 'other' => 3], sharedData: ['url' => 1, 'csrf' => 2]);
+    }
+
+    public function testSharedDataCannotCollideWithGlobals(): void
+    {
+        $view = new ViewEngine($this->views(['index.phtml' => 'ok']));
+        $view->addGlobal('url', 'global');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Shared render data conflicts with globals: "url".');
+
+        $view->render('index', sharedData: ['url' => 'shared']);
+    }
+
+    public function testLocalDataStillOverridesGlobals(): void
     {
         $dir = $this->views([
-            'index.phtml' => 'page',
-            'layouts/app.phtml' => '<?= $content ?>|<?= $v->content() ?>',
+            'index.phtml' => '<?= $v->e($who) ?>|<?= $v->inc("card", ["who" => "inc"]) ?>',
+            'card.phtml' => '<?= $v->e($who) ?>',
         ]);
+        $view = new ViewEngine($dir);
+        $view->addGlobal('who', 'global');
 
-        $html = (string) (new ViewEngine($dir))->render('index', layout: 'layouts/app', sharedData: [
-            'content' => 'SHARED',
+        $this->assertSame('root|inc', (string) $view->render('index', ['who' => 'root']));
+    }
+
+    public function testContentStaysAvailableAsPlainDataWithoutLayout(): void
+    {
+        $view = new ViewEngine($this->views(['index.phtml' => '<?= $v->e($content) ?>']));
+
+        $this->assertSame('shared', (string) $view->render('index', sharedData: ['content' => 'shared']));
+    }
+
+    public function testNestedRenderOnTheSameEngineKeepsIndependentTemplateChains(): void
+    {
+        $dir = $this->views([
+            'outer.phtml' => '<?= $v->inc("outer-card", ["engine" => $engine, "probe" => $probe]) ?>',
+            'outer-card.phtml' => <<<'PHP'
+                <?php
+                try {
+                    $engine->render('inner');
+                } catch (\Kaly\Tpl\ViewException $innerException) {
+                    $probe['innerStack'] = $innerException->templateStack();
+                }
+                throw new \RuntimeException('outer failed');
+                PHP,
+            'inner.phtml' => '<?= $v->inc("inner-card") ?>',
+            'inner-card.phtml' => '<?php throw new \RuntimeException("inner failed") ?>',
         ]);
+        $view = new ViewEngine($dir);
+        /** @var \ArrayObject<string, mixed> $probe */
+        $probe = new \ArrayObject();
 
-        $this->assertSame('page|page', $html);
+        try {
+            $view->render('outer', ['engine' => $view, 'probe' => $probe]);
+            $this->fail('Expected the outer render to fail.');
+        } catch (ViewException $exception) {
+            $this->assertSame('outer failed', $exception->getPrevious()?->getMessage());
+            $this->assertSame(['outer', 'outer-card'], $exception->templateStack());
+        }
+
+        $this->assertSame(['inner', 'inner-card'], $probe['innerStack'] ?? null);
     }
 
     public function testSharedDataCannotUseReservedNames(): void

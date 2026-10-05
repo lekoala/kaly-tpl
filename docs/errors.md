@@ -29,7 +29,8 @@ It deliberately does **not** wrap the two exception types the engine uses for co
 `catch` blocks keep working:
 
 - `\LogicException` — unclosed capture, layouts selected from a partial, circular layout chain, maximum depth;
-- `\InvalidArgumentException` — invalid template names, reserved data names, invalid view paths.
+- `\InvalidArgumentException` — invalid template names, reserved data names, invalid view paths, collisions with
+  shared render data (the message itself includes the template chain).
 
 This keeps the include chain focused on render-time failures while preserving the sharp, specific errors for engine
 misuse.

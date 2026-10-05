@@ -57,6 +57,31 @@ final class RenderContext
         array_pop($this->templateStack);
     }
 
+    /**
+     * Reject data whose names are already provided by the shared render data.
+     *
+     * @param array<array-key, mixed> $data
+     */
+    public function assertNoSharedCollision(array $data, string $message, bool $withChain = false): void
+    {
+        $names = array_map('strval', array_keys(array_intersect_key($data, $this->sharedData)));
+        if ($names === []) {
+            return;
+        }
+
+        sort($names);
+        $chain = $withChain && $this->templateStack !== []
+            ? sprintf(' (template chain: %s)', implode(' > ', $this->templateStack))
+            : '';
+
+        throw new \InvalidArgumentException(sprintf(
+            '%s: %s%s.',
+            $message,
+            implode(', ', array_map(static fn(string $name): string => '"' . $name . '"', $names)),
+            $chain,
+        ));
+    }
+
     public function recordFailure(\Throwable $exception): void
     {
         if (!$this->failureStacks->offsetExists($exception)) {
@@ -209,6 +234,9 @@ final class RenderContext
     /** @internal Used by ViewEngine to roll back state after a failed template. */
     public function restore(self $snapshot): void
     {
+        // Restore only template-visible mutable render state. Execution bookkeeping
+        // (shared data, template stack, failure stacks) belongs to the render itself
+        // and must never be rolled back.
         $this->layout = $snapshot->layout;
         $this->layoutData = $snapshot->layoutData;
         $this->title = $snapshot->title;

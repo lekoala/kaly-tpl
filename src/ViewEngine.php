@@ -124,15 +124,10 @@ final class ViewEngine
         $context = null;
 
         try {
-            foreach (array_keys($sharedData) as $name) {
-                $name = (string) $name;
-                $this->assertDataName($name);
-                $this->assertAvailableDataName($name);
-            }
-
-            unset($sharedData['content']);
+            $this->assertDataNames($sharedData);
 
             $context = new RenderContext($sharedData);
+            $context->assertNoSharedCollision($this->globals, 'Shared render data conflicts with globals');
             if ($layout !== null) {
                 $context->setLayout($layout, $layoutData);
             }
@@ -171,7 +166,11 @@ final class ViewEngine
         }
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * @internal Called by TemplateRuntime for isolated includes.
+     *
+     * @param array<string, mixed> $data
+     */
     public function renderPartial(string $template, array $data, RenderContext $context): Html
     {
         return $this->renderTemplate($template, $data, $context, allowLayout: false);
@@ -182,14 +181,6 @@ final class ViewEngine
     {
         $file = $this->resolve($template);
         $runtime = new TemplateRuntime($this, $context, $this->escaper, $this->formatter, $allowLayout);
-        $data = $this->prepareData($data, $runtime, $context);
-
-        if ($this->debug && $this->docblocker !== null) {
-            $this->docblocker->update($file, $data);
-        }
-
-        $snapshot = clone $context;
-        $bufferLevel = ob_get_level();
 
         /** @param array<string, mixed> $__kalyData */
         $render = static function (
@@ -232,6 +223,15 @@ final class ViewEngine
         $context->enterTemplate($template);
 
         try {
+            $data = $this->prepareData($data, $runtime, $context);
+
+            if ($this->debug && $this->docblocker !== null) {
+                $this->docblocker->update($file, $data);
+            }
+
+            $snapshot = clone $context;
+            $bufferLevel = ob_get_level();
+
             return $render($file, $data, $context, $snapshot, $bufferLevel);
         } catch (\Throwable $exception) {
             $context->recordFailure($exception);
@@ -247,20 +247,27 @@ final class ViewEngine
      */
     private function prepareData(array $data, TemplateRuntime $runtime, RenderContext $context): array
     {
-        $sharedData = $context->sharedData();
+        // Globals and shared data are validated once, by addGlobal() and render().
+        $this->assertDataNames($data);
 
-        foreach ([...array_keys($this->globals), ...array_keys($data), ...array_keys($sharedData)] as $name) {
-            $name = (string) $name;
-            $this->assertDataName($name);
-            $this->assertAvailableDataName($name);
-        }
+        $context->assertNoSharedCollision($data, 'Template data conflicts with shared render data', withChain: true);
 
         return [
             ...$this->globals,
             ...$data,
-            ...$sharedData,
+            ...$context->sharedData(),
             'v' => $runtime,
         ];
+    }
+
+    /** @param array<array-key, mixed> $data */
+    private function assertDataNames(array $data): void
+    {
+        foreach (array_keys($data) as $name) {
+            $name = (string) $name;
+            $this->assertDataName($name);
+            $this->assertAvailableDataName($name);
+        }
     }
 
     private function assertDataName(string $name): void
