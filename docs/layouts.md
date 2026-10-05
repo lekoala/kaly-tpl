@@ -44,6 +44,10 @@ The layout then reads them like any other data:
 Layout data is explicit and per-render. It is the recommended alternative to hiding request-specific values in globals or
 in blocks. `content` is reserved: layout data cannot override the page content.
 
+Data passed to `render()` as `sharedData` is available in every layout automatically, so capabilities such as a URL
+generator or the current locale do not need to be forwarded to each layout. See
+[Templates and runtime](templates.md#passing-data).
+
 A layout can chain to another layout. Each layout may provide its own data, and the same rules apply for every step.
 
 ## Blocks and stacks

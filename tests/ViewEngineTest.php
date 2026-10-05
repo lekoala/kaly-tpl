@@ -477,13 +477,19 @@ final class ViewEngineTest extends TestCase
         );
 
         foreach ($iterator as $item) {
+            $path = $item->getPathname();
             if ($item->isDir()) {
-                rmdir($item->getPathname());
-            } else {
-                unlink($item->getPathname());
+                rmdir($path);
+                continue;
             }
+
+            if (function_exists('opcache_invalidate')) {
+                opcache_invalidate($path, true);
+            }
+            unlink($path);
         }
 
+        clearstatcache(true, $dir);
         rmdir($dir);
     }
 }

@@ -65,8 +65,15 @@ Keep globals to services and application constants, and pass request data to `re
 $view->addGlobal('appName', 'My App');     // stable
 $view->addGlobal('router', $router);       // service
 
-$view->render('dashboard', ['currentUser' => $user]); // request-scoped
+$view->render(
+    'dashboard',
+    ['account' => $account],               // page-local
+    sharedData: ['url' => $url],           // whole render
+);
 ```
 
-Request data passed to `render()` is scoped to that call and its partials/layouts. This avoids carrying a user or session
-through mutable engine state.
+Render data is scoped to the rendered template only: it is not inherited by its includes or layouts. Use the
+`sharedData` argument for request capabilities that every template of a render should see (URL generators, the current
+locale, CSRF, ...). Shared data is available in the page, its includes, its `each()` templates and its layouts, and is
+never stored on the engine. See [Templates and runtime](templates.md#passing-data). This avoids carrying a user or
+session through mutable engine state.

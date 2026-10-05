@@ -73,7 +73,9 @@ Every template receives a reserved `$v` variable implementing `Kaly\Tpl\HtmlView
 ```
 
 `$v` and the internal `__kaly*` prefix are reserved and cannot be supplied through render data or globals. Includes are
-isolated: a partial receives only its explicit data, configured globals and `$v`, never arbitrary parent locals.
+isolated: a partial receives only its explicit data, configured globals, the render `sharedData` and `$v`, never arbitrary
+parent locals. Pass `sharedData:` to `render()` for request capabilities that the whole render (page, includes and
+layouts) should see.
 
 ## Documentation
 

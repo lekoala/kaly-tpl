@@ -20,12 +20,6 @@ final class ViewEngine
     /** @var array<string, mixed> */
     private array $globals = [];
 
-    /** @var list<string> */
-    private array $templateStack = [];
-
-    /** @var \WeakMap<\Throwable, list<string>> */
-    private \WeakMap $failureStacks;
-
     private string $extension;
     private bool $debug = false;
     private ?TemplateDocblocker $docblocker = null;
@@ -38,7 +32,6 @@ final class ViewEngine
         $this->addPath('', $viewsPath);
         $this->escaper = new DefaultEscaper();
         $this->formatter = new DefaultValueFormatter();
-        $this->failureStacks = new \WeakMap();
     }
 
     public function debug(bool $enabled = true): self
@@ -119,11 +112,27 @@ final class ViewEngine
     /**
      * @param array<string, mixed> $data
      * @param array<string, mixed> $layoutData
+     * @param array<string, mixed> $sharedData
      */
-    public function render(string $template, array $data = [], ?string $layout = null, array $layoutData = []): Html
-    {
+    public function render(
+        string $template,
+        array $data = [],
+        ?string $layout = null,
+        array $layoutData = [],
+        array $sharedData = [],
+    ): Html {
+        $context = null;
+
         try {
-            $context = new RenderContext();
+            foreach (array_keys($sharedData) as $name) {
+                $name = (string) $name;
+                $this->assertDataName($name);
+                $this->assertAvailableDataName($name);
+            }
+
+            unset($sharedData['content']);
+
+            $context = new RenderContext($sharedData);
             if ($layout !== null) {
                 $context->setLayout($layout, $layoutData);
             }
@@ -158,7 +167,7 @@ final class ViewEngine
 
             return $content;
         } catch (\Throwable $exception) {
-            throw ViewException::wrap($exception, $this->failureStacks[$exception] ?? []);
+            throw ViewException::wrap($exception, $context?->failureStack($exception) ?? []);
         }
     }
 
@@ -173,7 +182,7 @@ final class ViewEngine
     {
         $file = $this->resolve($template);
         $runtime = new TemplateRuntime($this, $context, $this->escaper, $this->formatter, $allowLayout);
-        $data = $this->prepareData($data, $runtime);
+        $data = $this->prepareData($data, $runtime, $context);
 
         if ($this->debug && $this->docblocker !== null) {
             $this->docblocker->update($file, $data);
@@ -220,17 +229,15 @@ final class ViewEngine
             }
         };
 
-        $this->templateStack[] = $template;
+        $context->enterTemplate($template);
 
         try {
             return $render($file, $data, $context, $snapshot, $bufferLevel);
         } catch (\Throwable $exception) {
-            if (!$this->failureStacks->offsetExists($exception)) {
-                $this->failureStacks[$exception] = $this->templateStack;
-            }
+            $context->recordFailure($exception);
             throw $exception;
         } finally {
-            array_pop($this->templateStack);
+            $context->leaveTemplate();
         }
     }
 
@@ -238,9 +245,11 @@ final class ViewEngine
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
-    private function prepareData(array $data, TemplateRuntime $runtime): array
+    private function prepareData(array $data, TemplateRuntime $runtime, RenderContext $context): array
     {
-        foreach ([...array_keys($this->globals), ...array_keys($data)] as $name) {
+        $sharedData = $context->sharedData();
+
+        foreach ([...array_keys($this->globals), ...array_keys($data), ...array_keys($sharedData)] as $name) {
             $name = (string) $name;
             $this->assertDataName($name);
             $this->assertAvailableDataName($name);
@@ -249,6 +258,7 @@ final class ViewEngine
         return [
             ...$this->globals,
             ...$data,
+            ...$sharedData,
             'v' => $runtime,
         ];
     }

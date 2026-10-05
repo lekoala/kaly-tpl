@@ -7,7 +7,8 @@ namespace Kaly\Tpl;
 /**
  * Mutable state shared by a top-level render, its layout and its partials.
  *
- * It stores title, blocks, stacks and the pending layout chain.
+ * It stores the per-render shared data, the title, blocks, stacks, the pending
+ * layout chain and the render-local template stack used to build error chains.
  */
 final class RenderContext
 {
@@ -26,6 +27,48 @@ final class RenderContext
 
     /** @var list<array{type: 'block'|'stack', name: string, level: int}> */
     private array $captures = [];
+
+    /** @var list<string> */
+    private array $templateStack = [];
+
+    /** @var \WeakMap<\Throwable, list<string>> */
+    private \WeakMap $failureStacks;
+
+    /** @param array<string, mixed> $sharedData */
+    public function __construct(
+        private readonly array $sharedData = [],
+    ) {
+        $this->failureStacks = new \WeakMap();
+    }
+
+    /** @return array<string, mixed> */
+    public function sharedData(): array
+    {
+        return $this->sharedData;
+    }
+
+    public function enterTemplate(string $template): void
+    {
+        $this->templateStack[] = $template;
+    }
+
+    public function leaveTemplate(): void
+    {
+        array_pop($this->templateStack);
+    }
+
+    public function recordFailure(\Throwable $exception): void
+    {
+        if (!$this->failureStacks->offsetExists($exception)) {
+            $this->failureStacks[$exception] = $this->templateStack;
+        }
+    }
+
+    /** @return list<string> */
+    public function failureStack(\Throwable $exception): array
+    {
+        return $this->failureStacks[$exception] ?? [];
+    }
 
     /** @param array<string, mixed> $data */
     public function setLayout(string $template, array $data = []): void
@@ -83,6 +126,16 @@ final class RenderContext
         return new Html(implode('', array_map('strval', $this->stacks[$name] ?? [])));
     }
 
+    /**
+     * Open a capture.
+     *
+     * `$type` must be either `'block'`, which stores a single, replaceable
+     * named block read with `block()`, or `'stack'`, which appends to a named
+     * stack read with `stack()`. Any other value is rejected.
+     *
+     * @param string $type the capture kind: `'block'` or `'stack'`.
+     * @param string $name the capture name, matching `[A-Za-z][A-Za-z0-9_.-]*`.
+     */
     public function begin(string $type, string $name): void
     {
         if ($type !== 'block' && $type !== 'stack') {

@@ -6,8 +6,23 @@
 <?= $v->inc('appointments/card', ['appointment' => $appointment]) ?>
 ```
 
-The partial receives its explicit data, configured globals and `$v`. It does not see the parent template's local
-variables. A partial cannot select a layout.
+The partial receives its explicit data, configured globals, the render `sharedData` and `$v`. It does not see the parent
+template's local variables. A partial cannot select a layout.
+
+## Inline loops
+
+Kaly Tpl is PHP. When the repeated markup belongs to the current template, use a native `foreach`:
+
+```php
+<ul>
+<?php foreach ($items as $item): ?>
+    <li><?= $v->e($item['label']) ?></li>
+<?php endforeach ?>
+</ul>
+```
+
+Use `each()` when each item is naturally its own template, or when its loop metadata, recursion, empty-template handling,
+or generator lookahead is useful. A `<li>` is not a component just because it is inside a loop.
 
 ## Loops
 
