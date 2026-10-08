@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tpl\Tests;
 
 use Kaly\Tpl\DefaultValueFormatter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ValueFormatterTest extends TestCase
@@ -92,6 +93,62 @@ final class ValueFormatterTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
         $formatter->duration(90, 'medium');
+    }
+
+    #[DataProvider('fixedOffsets')]
+    public function testDateFormattingPreservesFixedOffsets(string $offset, bool $configured): void
+    {
+        $timezone = new \DateTimeZone($offset);
+        $formatter = new DefaultValueFormatter('en_GB', timezone: $configured ? $timezone : null);
+        $immutable = new \DateTimeImmutable('2026-01-01T23:30:00' . ($configured ? '+00:00' : $offset));
+        $mutable = \DateTime::createFromImmutable($immutable);
+        $original = $immutable->format('c e');
+        $local = $immutable->setTimezone($timezone);
+        $styles = [
+            'date' => ['medium', 'none', 'Y-m-d'],
+            'time' => ['none', 'short', 'H:i'],
+            'datetime' => ['medium', 'short', 'Y-m-d H:i'],
+        ];
+
+        foreach ($styles as $method => [$dateStyle, $timeStyle, $fallback]) {
+            $style = $method === 'time' ? $timeStyle : $dateStyle;
+            $expected = $local->format($fallback);
+            if (class_exists(\IntlDateFormatter::class)) {
+                $intlStyles = [
+                    'none' => \IntlDateFormatter::NONE,
+                    'short' => \IntlDateFormatter::SHORT,
+                    'medium' => \IntlDateFormatter::MEDIUM,
+                ];
+                $expected = (new \IntlDateFormatter(
+                    'en_GB',
+                    $intlStyles[$dateStyle],
+                    $intlStyles[$timeStyle],
+                    'GMT' . $offset,
+                ))->format($immutable->getTimestamp());
+            }
+            $this->assertIsString($expected);
+            $this->assertNotSame('', $expected);
+
+            foreach ([$immutable, $mutable, $immutable->format('c')] as $value) {
+                $this->assertSame($expected, $formatter->$method($value, $style));
+            }
+        }
+
+        $this->assertSame($original, $mutable->format('c e'));
+        $this->assertSame($original, $immutable->format('c e'));
+    }
+
+    /** @return list<array{string,bool}> */
+    public static function fixedOffsets(): array
+    {
+        return [
+            ['+00:00', false],
+            ['+05:45', false],
+            ['-03:30', false],
+            ['+00:00', true],
+            ['+05:45', true],
+            ['-03:30', true],
+        ];
     }
 
     public function testFallbackDateFormattingAppliesConfiguredTimezoneToStrings(): void

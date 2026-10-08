@@ -147,10 +147,8 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         string $fallback,
     ): string {
         if (class_exists(\IntlDateFormatter::class)) {
-            $timezone = $this->timezone?->getName();
-            if ($timezone === null) {
-                $timezone = $date->getTimezone()->getName();
-            }
+            // Passing the object also supports PHP fixed-offset timezones such as +00:00.
+            $timezone = $this->timezone ?? $date->getTimezone();
 
             $formatter = new \IntlDateFormatter(
                 $this->locale,

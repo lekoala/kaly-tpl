@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Date, time and datetime formatting accepts fixed-offset timezones such as
+  `+00:00`, `+05:45` and `-03:30` with ext-intl, both on input dates and as the
+  configured display timezone, preserving the offset instead of raising an exception.
+
 ## 0.2.0
 
 ### Added
