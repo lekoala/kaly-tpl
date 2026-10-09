@@ -151,6 +151,31 @@ final class ValueFormatterTest extends TestCase
         ];
     }
 
+    #[DataProvider('abbreviations')]
+    public function testDateFormattingKeepsTheWallTimeOfAbbreviatedTimezones(string $value, ?string $configured): void
+    {
+        $timezone = $configured === null ? null : new \DateTimeZone($configured);
+        $formatter = new DefaultValueFormatter('en_GB', timezone: $timezone);
+        $date = new \DateTimeImmutable($value);
+        $expected = ($timezone === null ? $date : $date->setTimezone($timezone))->format('H:i');
+
+        $this->assertSame($expected, $formatter->time($value));
+        $this->assertSame($expected, $formatter->time($date));
+    }
+
+    /** @return list<array{string,?string}> */
+    public static function abbreviations(): array
+    {
+        return [
+            ['2026-07-01T10:00:00Z',  null],
+            ['2026-07-01 10:00 BST',  null],
+            ['2026-07-01 10:00 CEST', null],
+            ['2026-07-01 10:00 PDT',  null],
+            ['2026-07-01T10:00:00Z',  'CEST'],
+            ['2026-07-01T10:00:00Z',  'Europe/Brussels'],
+        ];
+    }
+
     public function testFallbackDateFormattingAppliesConfiguredTimezoneToStrings(): void
     {
         $autoload = var_export(dirname(__DIR__) . '/vendor/autoload.php', true);

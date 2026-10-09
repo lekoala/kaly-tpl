@@ -1,12 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
 
 ### Fixed
 
 - Date, time and datetime formatting accepts fixed-offset timezones such as
   `+00:00`, `+05:45` and `-03:30` with ext-intl, both on input dates and as the
   configured display timezone, preserving the offset instead of raising an exception.
+- Abbreviated timezones keep PHP's wall time with ext-intl. ISO strings ending in
+  `Z` and abbreviations such as `CEST` or `PDT` no longer raise an `IntlException`,
+  and ambiguous ones such as `BST` (British Summer Time for PHP, Bangladesh for ICU)
+  no longer shift the displayed time.
 
 ## 0.2.0
 

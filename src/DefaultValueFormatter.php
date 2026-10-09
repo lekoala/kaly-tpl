@@ -147,8 +147,13 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         string $fallback,
     ): string {
         if (class_exists(\IntlDateFormatter::class)) {
-            // Passing the object also supports PHP fixed-offset timezones such as +00:00.
-            $timezone = $this->timezone ?? $date->getTimezone();
+            // dateValue() already applied the configured timezone. ICU only knows
+            // region identifiers: offsets (+05:45) and abbreviations (Z, BST, CEST)
+            // are pinned to the offset of this instant, keeping the PHP wall time.
+            $timezone = $date->getTimezone();
+            if ($timezone->getLocation() === false) {
+                $timezone = new \DateTimeZone($date->format('P'));
+            }
 
             $formatter = new \IntlDateFormatter(
                 $this->locale,
