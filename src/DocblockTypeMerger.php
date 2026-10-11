@@ -13,11 +13,12 @@ namespace Kaly\Tpl;
 final class DocblockTypeMerger
 {
     /**
-     * Written types that refine an inferred one, by inferred type. Generic forms
-     * (`array<…>`, `iterable<…>`, `int<…>`, `\Foo<…>`) are covered by refines().
+     * Written types that already cover an inferred one, by inferred type: refinements
+     * (`list<User>` for `array`) and wider written types (`iterable<int, User>` for `array`).
+     * Generic forms (`array<…>`, `int<…>`, `\Foo<…>`) and `T[]` are covered by refines().
      */
     private const REFINEMENTS = [
-        'array' => ['array{', 'list', 'non-empty-array', 'non-empty-list'],
+        'array' => ['array{', 'list', 'non-empty-array', 'non-empty-list', 'iterable'],
         'string' => ['non-empty-string', 'numeric-string', 'class-string', 'literal-string'],
         'int' => ['positive-int', 'negative-int', 'non-negative-int', 'non-positive-int', 'non-zero-int'],
     ];
@@ -81,6 +82,10 @@ final class DocblockTypeMerger
     private function refines(string $written, string $inferred): bool
     {
         if (str_starts_with($written, $inferred . '<')) {
+            return true;
+        }
+
+        if ($inferred === 'array' && str_ends_with($written, '[]')) {
             return true;
         }
 

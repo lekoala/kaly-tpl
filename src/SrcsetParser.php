@@ -80,9 +80,15 @@ final class SrcsetParser
         foreach ($candidates as $candidate) {
             // A candidate without a descriptor is the same as `1x`.
             $descriptor = $candidate['descriptor'] ?? '1x';
-            if (preg_match('/^([1-9]\d*)w$/', $descriptor, $match)) {
-                $key = 'w' . $match[1];
-            } elseif (preg_match('/^(\d+|\d*\.\d+)x$/', $descriptor, $match) && (float) $match[1] > 0) {
+            // HTML microsyntaxes: a width is a non-negative integer (leading zeros allowed), a
+            // density a floating-point number (exponent allowed). Values are normalized for duplicates.
+            if (preg_match('/^(\d+)w$/', $descriptor, $match) && (int) $match[1] > 0) {
+                $key = 'w' . (int) $match[1];
+            } elseif (
+                preg_match('/^((?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?)x$/', $descriptor, $match)
+                && (float) $match[1] > 0
+                && is_finite((float) $match[1])
+            ) {
                 $key = 'x' . (float) $match[1];
             } else {
                 throw self::invalid($value, sprintf('unknown descriptor "%s"', $descriptor));

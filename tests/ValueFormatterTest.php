@@ -51,6 +51,10 @@ final class ValueFormatterTest extends TestCase
         yield 'spaces' => ['not a locale'];
         yield 'path' => ['../x'];
         yield 'too long' => [str_repeat('a', 200)];
+        yield 'bare keyword' => ['en_US@foo'];
+        yield 'empty keyword name' => ['en_US@=x'];
+        yield 'empty keyword value' => ['en@currency='];
+        yield 'trailing separator' => ['en@currency=EUR;'];
     }
 
     #[DataProvider('invalidLocales')]
@@ -62,10 +66,16 @@ final class ValueFormatterTest extends TestCase
         new DefaultValueFormatter($locale);
     }
 
-    public function testValidLocaleShapesAreAccepted(): void
+    public function testValidLocaleShapesAreAcceptedAndRender(): void
     {
-        foreach (['en', 'fr_BE', 'fr-BE', 'zh_Hant_TW', 'en_US@currency=EUR'] as $locale) {
-            $this->assertSame('', (new DefaultValueFormatter($locale))->number(null));
+        $locales = ['en', 'fr_BE', 'fr-BE', 'zh_Hant_TW', 'en_US@currency=EUR', 'th_TH@calendar=buddhist;numbers=latn'];
+        $date = new \DateTimeImmutable('2026-01-01');
+
+        foreach ($locales as $locale) {
+            // Formatting a real value builds the ICU formatters, which is where a bad locale fails.
+            $formatter = new DefaultValueFormatter($locale);
+            $this->assertNotSame('', $formatter->number(1));
+            $this->assertNotSame('', $formatter->date($date));
         }
     }
 

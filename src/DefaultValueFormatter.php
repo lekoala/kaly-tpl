@@ -30,9 +30,13 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         private ?\DateTimeZone $timezone = null,
     ) {
         // ICU accepts almost any string, then fails or silently falls back at first use.
+        // Keywords must be `@key=value(;key=value)*`: a bare `@foo` makes ICU constructors fail.
         if (
             strlen($locale) > self::MAX_LOCALE_LENGTH
-            || !preg_match('/^[A-Za-z]{2,8}([_-][A-Za-z0-9]{1,8})*(@[A-Za-z0-9=;_-]+)?$/', $locale)
+            || !preg_match(
+                '/^[A-Za-z]{2,8}([_-][A-Za-z0-9]{1,8})*(@[A-Za-z0-9]+=[A-Za-z0-9_\/-]+(;[A-Za-z0-9]+=[A-Za-z0-9_\/-]+)*)?$/',
+                $locale,
+            )
         ) {
             throw new ViewUsageException(sprintf('Invalid locale "%s".', $locale));
         }

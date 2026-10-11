@@ -97,6 +97,17 @@ final class RenderSafetyTest extends TestCase
         $this->assertSame('<main>[page]|[page]</main>', (string) (new ViewEngine($dir))->render('index'));
     }
 
+    public function testClonedEngineDoesNotShareViewPaths(): void
+    {
+        $view = new ViewEngine($this->views(['index.phtml' => 'index']));
+        $copy = clone $view;
+
+        $copy->addPath('theme', $this->views(['card.phtml' => 'card']));
+
+        $this->assertTrue($copy->exists('@theme/card'));
+        $this->assertFalse($view->exists('@theme/card'));
+    }
+
     public function testResolvedTemplatesAreCachedButMissingOnesAreNot(): void
     {
         $dir = $this->views(['index.phtml' => 'index']);

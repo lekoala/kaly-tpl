@@ -32,6 +32,12 @@ final class ViewEngine
         $this->formatter = new DefaultValueFormatter();
     }
 
+    public function __clone()
+    {
+        // A clone (e.g. per theme or per request) must not share registered view paths.
+        $this->locator = clone $this->locator;
+    }
+
     public function debug(bool $enabled = true): self
     {
         $this->debug = $enabled;

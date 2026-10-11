@@ -32,6 +32,9 @@ final class TemplateDocblockerTest extends TestCase
             ' * @var list<\stdClass> $users',
             ' * @var non-empty-string $title',
             ' * @var iterable<int, string> $rows',
+            ' * @var string[] $tags',
+            ' * @var iterable<int, string> $items',
+            ' * @var iterable $any',
         ]));
 
         TemplateDocblocker::syncManaged()->update($file, [
@@ -39,6 +42,9 @@ final class TemplateDocblockerTest extends TestCase
             'users' => [new \stdClass()],
             'title' => 'Hello',
             'rows' => new \ArrayIterator(['x']),
+            'tags' => ['a'],
+            'items' => ['a'],
+            'any' => ['a'],
         ]);
 
         $contents = (string) file_get_contents($file);
@@ -46,6 +52,9 @@ final class TemplateDocblockerTest extends TestCase
         $this->assertStringContainsString(" * @var list<\\stdClass> \$users\n", $contents);
         $this->assertStringContainsString(" * @var non-empty-string \$title\n", $contents);
         $this->assertStringContainsString(" * @var iterable<int, string> \$rows\n", $contents);
+        $this->assertStringContainsString(" * @var string[] \$tags\n", $contents);
+        $this->assertStringContainsString(" * @var iterable<int, string> \$items\n", $contents);
+        $this->assertStringContainsString(" * @var iterable \$any\n", $contents);
     }
 
     public function testNewObservedTypesStillWidenWrittenTypes(): void

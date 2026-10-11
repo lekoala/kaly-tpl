@@ -35,6 +35,17 @@ final class UrlListAttributeTest extends TestCase
         );
     }
 
+    public function testSrcsetAcceptsHtmlNumberForms(): void
+    {
+        $escaper = new DefaultEscaper();
+
+        $this->assertSame(
+            ' srcset="/a.jpg 1e0x, /b.jpg 2E0x, /c.jpg .5x"',
+            (string) $escaper->attrs(['srcset' => '/a.jpg 1e0x, /b.jpg 2E0x, /c.jpg .5x']),
+        );
+        $this->assertSame(' srcset="/a.jpg 0480w"', (string) $escaper->attrs(['srcset' => '/a.jpg 0480w']));
+    }
+
     public function testRefusedCandidatesAreDropped(): void
     {
         $this->assertSame(
@@ -63,6 +74,11 @@ final class UrlListAttributeTest extends TestCase
         yield 'zero density' => ['/a.jpg 0x', 'unknown descriptor "0x"'];
         yield 'implicit 1x duplicate' => ['/a.jpg, /b.jpg 1x', 'duplicate descriptor "1x"'];
         yield 'equivalent densities' => ['/a.jpg 1x, /b.jpg 1.0x', 'duplicate descriptor "1.0x"'];
+        yield 'equivalent exponent' => ['/a.jpg 2x, /b.jpg 0.2e1x', 'duplicate descriptor "0.2e1x"'];
+        yield 'equivalent widths' => ['/a.jpg 480w, /b.jpg 0480w', 'duplicate descriptor "0480w"'];
+        yield 'zero width' => ['/a.jpg 000w', 'unknown descriptor "000w"'];
+        yield 'negative density' => ['/a.jpg -1x', 'unknown descriptor "-1x"'];
+        yield 'infinite density' => ['/a.jpg 1e999x', 'unknown descriptor "1e999x"'];
         yield 'mixed descriptors' => ['/a.jpg 100w, /b.jpg 2x', 'cannot be mixed'];
     }
 
