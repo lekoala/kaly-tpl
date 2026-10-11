@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tpl\Tests;
 
+use Kaly\Tpl\DefaultValueFormatter;
 use Kaly\Tpl\ViewEngine;
 use Kaly\Tpl\ViewException;
 use Kaly\Tpl\ViewLogicException;
@@ -12,17 +13,7 @@ use PHPUnit\Framework\TestCase;
 
 final class RenderSafetyTest extends TestCase
 {
-    /** @var list<string> */
-    private array $tempDirs = [];
-
-    protected function tearDown(): void
-    {
-        foreach ($this->tempDirs as $dir) {
-            $this->removeDirectory($dir);
-        }
-
-        parent::tearDown();
-    }
+    use TemporaryViews;
 
     public function testRecursiveIncludesAreRejected(): void
     {
@@ -85,6 +76,27 @@ final class RenderSafetyTest extends TestCase
         $this->assertSame('&lt;b&gt;text&lt;/b&gt;|<b>html</b>', $html);
     }
 
+    public function testContentBlockCannotBeCaptured(): void
+    {
+        $dir = $this->views(['index.phtml' => '<?php $v->start("content") ?>x<?php $v->end() ?>']);
+
+        $this->expectException(ViewUsageException::class);
+        $this->expectExceptionMessage('The "content" block is managed by the engine');
+
+        (new ViewEngine($dir))->render('index');
+    }
+
+    public function testContentStillFlowsThroughNestedLayouts(): void
+    {
+        $dir = $this->views([
+            'index.phtml' => '<?php $v->layout("layouts/inner") ?>page',
+            'layouts/inner.phtml' => '<?php $v->layout("layouts/outer") ?>[<?= $v->content() ?>]',
+            'layouts/outer.phtml' => '<main><?= $v->content() ?>|<?= $v->block("content") ?></main>',
+        ]);
+
+        $this->assertSame('<main>[page]|[page]</main>', (string) (new ViewEngine($dir))->render('index'));
+    }
+
     public function testResolvedTemplatesAreCachedButMissingOnesAreNot(): void
     {
         $dir = $this->views(['index.phtml' => 'index']);
@@ -119,52 +131,27 @@ final class RenderSafetyTest extends TestCase
         $view->render('index');
     }
 
-    /** @param array<string, string> $files */
-    private function views(array $files): string
+    public function testLocaleCanBeCalledRepeatedlyAndBeforeACustomFormatter(): void
     {
-        $dir = sys_get_temp_dir() . '/kaly-tpl-' . bin2hex(random_bytes(6));
-        $this->tempDirs[] = $dir;
+        $dir = $this->views(['index.phtml' => '<?= $v->number(1234.56, 2) ?>']);
+        $custom = new DefaultValueFormatter('fr_BE');
 
-        foreach ($files as $name => $contents) {
-            $path = $dir . '/' . $name;
-            $parent = dirname($path);
-            if (!is_dir($parent) && !mkdir($parent, recursive: true) && !is_dir($parent)) {
-                throw new \RuntimeException(sprintf('Unable to create test directory "%s".', $parent));
-            }
+        $view = (new ViewEngine($dir))
+            ->locale('de_DE')
+            ->locale('en');
+        $this->assertSame('1,234.56', (string) $view->render('index'));
 
-            if (file_put_contents($path, $contents) === false) {
-                throw new \RuntimeException(sprintf('Unable to write test template "%s".', $path));
-            }
-        }
-
-        return $dir;
+        $view->formatter($custom);
+        $this->assertSame($custom->number(1234.56, 2), (string) $view->render('index'));
     }
 
-    private function removeDirectory(string $dir): void
+    public function testLocaleCannotReplaceACustomFormatter(): void
     {
-        if (!is_dir($dir)) {
-            return;
-        }
+        $view = (new ViewEngine($this->views(['index.phtml' => ''])))->formatter(new DefaultValueFormatter());
 
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
+        $this->expectException(ViewLogicException::class);
+        $this->expectExceptionMessage('locale() would replace the custom formatter');
 
-        foreach ($iterator as $item) {
-            $path = $item->getPathname();
-            if ($item->isDir()) {
-                rmdir($path);
-                continue;
-            }
-
-            if (function_exists('opcache_invalidate')) {
-                opcache_invalidate($path, true);
-            }
-            unlink($path);
-        }
-
-        clearstatcache(true, $dir);
-        rmdir($dir);
+        $view->locale('fr_BE');
     }
 }

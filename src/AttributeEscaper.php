@@ -60,6 +60,13 @@ final class AttributeEscaper
         'xlink:href',
     ];
 
+    /** @var list<string> */
+    private const URL_LIST_ATTRIBUTES = [
+        'imagesrcset',
+        'ping',
+        'srcset',
+    ];
+
     public function __construct(
         private readonly Escaper $escaper,
     ) {}
@@ -89,6 +96,18 @@ final class AttributeEscaper
                     throw new ViewUsageException(sprintf('URL attribute "%s" must be stringable.', $name));
                 }
                 $out[] = sprintf('%s="%s"', $name, $this->escaper->url($value));
+                continue;
+            }
+
+            if (in_array($normalizedName, self::URL_LIST_ATTRIBUTES, true)) {
+                if (!is_string($value) && !$value instanceof \Stringable) {
+                    throw new ViewUsageException(sprintf('URL attribute "%s" must be stringable.', $name));
+                }
+                // Refused URLs are dropped; the attribute is omitted when none is left.
+                $list = $this->urlList($normalizedName, (string) $value);
+                if ($list !== '') {
+                    $out[] = sprintf('%s="%s"', $name, $list);
+                }
                 continue;
             }
 
@@ -129,6 +148,35 @@ final class AttributeEscaper
     public function styleVars(array $vars): Html
     {
         return new Html($this->escaper->attr($this->styleVarsString($vars)));
+    }
+
+    /**
+     * Render `ping` (space-separated HTTP(S) URLs) or `srcset` / `imagesrcset` (image
+     * candidates), applying the URL policy to each URL.
+     */
+    private function urlList(string $name, string $value): string
+    {
+        if ($name === 'ping') {
+            $urls = preg_split('/[ \t\n\f\r]+/', $value, flags: PREG_SPLIT_NO_EMPTY);
+            if ($urls === false) {
+                return '';
+            }
+            $urls = array_filter($urls, UrlPolicy::isHttp(...));
+
+            return implode(' ', array_map($this->escaper->url(...), $urls));
+        }
+
+        $candidates = array_filter(SrcsetParser::parse($value), static fn(array $candidate): bool => UrlPolicy::isSafe(
+            $candidate['url'],
+        ));
+
+        return implode(', ', array_map(
+            fn(array $candidate): string => (
+                $this->escaper->url($candidate['url'])
+                . ($candidate['descriptor'] === null ? '' : ' ' . $candidate['descriptor'])
+            ),
+            $candidates,
+        ));
     }
 
     private function attributeValue(string $name, mixed $value): mixed

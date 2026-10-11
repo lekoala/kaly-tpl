@@ -181,6 +181,12 @@ final class RenderContext
         }
 
         $this->assertName($name);
+        // The engine writes "content" itself after each page and layout render, so a
+        // template capture would be silently overwritten.
+        if ($type === 'block' && $name === 'content') {
+            throw new ViewUsageException('The "content" block is managed by the engine and cannot be captured.');
+        }
+
         if (!ob_start()) {
             throw new \RuntimeException(sprintf('Unable to start output buffer for view capture "%s".', $name));
         }

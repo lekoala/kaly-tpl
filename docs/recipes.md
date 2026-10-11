@@ -29,8 +29,8 @@ its helpers. Globals are shared by every template, so use them for services, not
 
 ## Components with captures
 
-`start()` / `end()` already cover most "slot" needs without a dedicated component API. Define a component template that
-reads a captured block and renders its shell:
+`start()` / `end()` cover simple "slot" needs without a dedicated component API. Define a component template that reads a
+captured block and renders its shell:
 
 ```php
 <?php // components/modal.phtml ?>
@@ -50,8 +50,16 @@ reads a captured block and renders its shell:
 ```
 
 The shell reuses the captured block, while the page keeps full control of the body markup. This stays inside the existing
-primitives (`start()`, `block()`, `inc()`) and avoids a second, overlapping component abstraction. Add a dedicated slots
-API only if a concrete case cannot be expressed this way.
+primitives (`start()`, `block()`, `inc()`) and avoids a second, overlapping component abstraction.
+
+Blocks are not scoped to a component: they live in the render context, shared by the page, its partials and its layouts.
+
+- Block names are shared across the whole render.
+- The last definition of a block replaces the previous one. A second modal that does not capture its own `body` renders
+  the body of the first one.
+- The recipe therefore fits a component rendered once per page, not a component reused with independent slots. For
+  repeated instances, use one block name per instance or pass the markup to `inc()` as `Html` data.
+- `content` is reserved: the engine writes it after the page and after each layout, so `start('content')` throws.
 
 ## Engine lifetime and globals
 

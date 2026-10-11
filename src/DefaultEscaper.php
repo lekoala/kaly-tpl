@@ -40,7 +40,7 @@ final class DefaultEscaper implements Escaper
             return '';
         }
 
-        if (!$this->isSafeUrl($url)) {
+        if (!UrlPolicy::isSafe($url)) {
             return '#';
         }
 
@@ -68,29 +68,6 @@ final class DefaultEscaper implements Escaper
     public function styleVars(array $vars): Html
     {
         return $this->attributes->styleVars($vars);
-    }
-
-    private function isSafeUrl(string $url): bool
-    {
-        if (preg_match('/[\x00-\x1F\x7F]/', $url)) {
-            return false;
-        }
-
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        if ($scheme !== null && $scheme !== false && $scheme !== '') {
-            return in_array(strtolower($scheme), ['http', 'https', 'mailto', 'tel'], true);
-        }
-
-        if (str_replace('\\', '/', substr($url, 0, 2)) === '//') {
-            return false;
-        }
-
-        return (
-            str_starts_with($url, '/')
-            || str_starts_with($url, '#')
-            || str_starts_with($url, '?')
-            || !preg_match('/^[a-z][a-z0-9+.-]*:/i', $url)
-        );
     }
 
     private function string(mixed $value): string

@@ -17,6 +17,7 @@ final readonly class TemplateDocblocker
     public function __construct(
         private DocblockTypeInferrer $inferrer = new DocblockTypeInferrer(),
         private bool $syncManagedBlocks = true,
+        private DocblockTypeMerger $merger = new DocblockTypeMerger(),
     ) {}
 
     public static function ensureOnly(): self
@@ -87,9 +88,13 @@ final readonly class TemplateDocblocker
                 return $contents;
             }
 
-            $merged = $this->mergeVariables($this->variablesFromDocblock($managed), $vars);
+            [$existing, $descriptions, $otherLines] = $this->parseDocblock($managed);
+            $merged = $this->mergeVariables($existing, $vars);
 
-            return $this->composeHeader($this->stripManagedHeader($contents), $this->buildDocblock($merged));
+            return $this->composeHeader(
+                $this->stripManagedHeader($contents),
+                $this->buildDocblock($merged, $descriptions, $otherLines),
+            );
         }
 
         return $this->composeHeader($contents, $this->buildDocblock($vars));
@@ -144,24 +149,36 @@ final readonly class TemplateDocblocker
     }
 
     /**
-     * @return array<string, string>
+     * Split a managed docblock into its variables, their descriptions and the lines
+     * it does not understand, which are kept verbatim instead of being dropped.
+     *
+     * @return array{array<string, string>, array<string, string>, list<string>}
      */
-    private function variablesFromDocblock(string $body): array
+    private function parseDocblock(string $docblock): array
     {
         $vars = [];
+        $descriptions = [];
+        $otherLines = [];
 
-        if (preg_match_all(
-            '/^\s*\*\s+@var\s+([^\s]+)\s+\$([A-Za-z_][A-Za-z0-9_]*)/m',
-            $body,
-            $matches,
-            PREG_SET_ORDER,
-        )) {
-            foreach ($matches as $match) {
-                $vars[$match[2]] = $match[1];
+        foreach (explode("\n", str_replace("\r\n", "\n", $docblock)) as $line) {
+            $line = trim((string) preg_replace('#^\s*(?:/\*\*|\*/|\*(?!/))?|\*/\s*$#', '', $line));
+            if ($line === '' || $line === self::MARKER) {
+                continue;
             }
+
+            // The type is everything before the variable name, so it may contain spaces (array<string, int>).
+            if (preg_match('/^@var\s+(.+?)\s+\$([A-Za-z_][A-Za-z0-9_]*)(?:\s+|$)(.*)$/', $line, $match)) {
+                $vars[$match[2]] = $match[1];
+                if ($match[3] !== '') {
+                    $descriptions[$match[2]] = $match[3];
+                }
+                continue;
+            }
+
+            $otherLines[] = $line;
         }
 
-        return $vars;
+        return [$vars, $descriptions, $otherLines];
     }
 
     /**
@@ -178,38 +195,18 @@ final readonly class TemplateDocblocker
                 continue;
             }
 
-            $merged[$name] = $this->mergeTypes($existing[$name] ?? null, $observed[$name] ?? null);
+            $merged[$name] = $this->merger->merge($existing[$name] ?? null, $observed[$name] ?? null);
         }
 
         return $merged;
     }
 
-    private function mergeTypes(?string $existing, ?string $observed): string
-    {
-        $types = [];
-
-        foreach ([$existing, $observed] as $type) {
-            if ($type === null || $type === '') {
-                continue;
-            }
-
-            foreach (explode('|', $type) as $token) {
-                $token = trim($token);
-                if ($token !== '') {
-                    $types[$token] = true;
-                }
-            }
-        }
-
-        if (count($types) > 1) {
-            unset($types['mixed']);
-        }
-
-        return $types === [] ? 'mixed' : implode('|', array_keys($types));
-    }
-
-    /** @param array<string, string> $vars */
-    private function buildDocblock(array $vars): string
+    /**
+     * @param array<string, string> $vars
+     * @param array<string, string> $descriptions
+     * @param list<string> $otherLines
+     */
+    private function buildDocblock(array $vars, array $descriptions = [], array $otherLines = []): string
     {
         $lines = [
             '/**',
@@ -217,7 +214,12 @@ final readonly class TemplateDocblocker
         ];
 
         foreach ($vars as $name => $type) {
-            $lines[] = sprintf(' * @var %s $%s', $type, $name);
+            $description = array_key_exists($name, $descriptions) ? ' ' . $descriptions[$name] : '';
+            $lines[] = sprintf(' * @var %s $%s%s', $type, $name, $description);
+        }
+
+        foreach ($otherLines as $line) {
+            $lines[] = ' * ' . $line;
         }
 
         $lines[] = ' */';

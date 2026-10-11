@@ -12,9 +12,16 @@
 - **Breaking:** a string default passed to `$v->block($name, $default)` is now escaped. Pass `$v->html(...)` for markup.
 - **Breaking:** `ViewException` now wraps every application exception, whatever its class (`\DomainException`,
   HTTP exceptions, …). Only engine exceptions pass through unwrapped. Use `getPrevious()` to get the original.
+- **Breaking:** `start('content')` throws: the engine manages the `content` block and would overwrite the capture.
+- **Breaking:** `locale()` throws after `formatter()` instead of silently replacing the custom formatter.
 - ext-intl number and date formatters are reused across calls, about 15 to 20 times faster in formatted lists.
 - Resolved template files are cached per engine (except in debug mode), about twice as fast for `each()` on Windows.
 - `each()` data can no longer contain the item variable, `key` or `loop` (previously silently overridden).
+- `attrs()` applies the URL policy to `srcset`, `imagesrcset` (strict candidate parser, commas allowed in URLs) and
+  `ping` (HTTP(S) only). Refused URLs are dropped, the attribute is omitted when none is left, and invalid `srcset`
+  syntax throws.
+- Managed template docblocks keep written types (`array<string, int|string>`), never degrade them with a less precise
+  inferred type, and keep lines and descriptions they do not parse.
 - Unknown date styles throw instead of falling back to `medium`.
 - Invalid locales are rejected by `locale()` / `DefaultValueFormatter` instead of failing at first render.
 - `ext-intl` is listed in `suggest`.

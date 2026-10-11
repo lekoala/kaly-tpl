@@ -18,6 +18,15 @@ it uses deterministic neutral fallbacks (`Y-m-d`, `H:i`, `1,234.50 EUR`, and sim
 Invalid numeric strings and non-finite values fail loudly instead of being silently coerced to zero. Date styles are
 `short`, `medium`, `long` and `full`; any other style throws.
 
+The default formatter is meant for display, not for exact monetary representation:
+
+- every number goes through a `float`, so very large integers and decimal strings can lose precision
+  (with `ext-intl`, `number(PHP_INT_MAX)` renders `9,223,372,036,854,776,000`);
+- without `ext-intl`, `money()` always renders two decimals, including for currencies that use none (`1,234.00 JPY`).
+
+Keep exact amounts in the domain and billing code; templates only present them. Inject a dedicated `ValueFormatter` when
+exact rendering matters.
+
 Durations are always deterministic and locale-neutral, regardless of `ext-intl`: `duration()` renders a clock-style
 `m:ss` or `h:mm:ss` (hours unbounded) by default, and a spelled-out `1 h 2 min 3 s` form with the `long` style. It
 accepts a number of seconds or a `DateInterval` that resolves to a fixed duration; intervals carrying years or months

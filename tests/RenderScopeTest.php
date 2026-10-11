@@ -10,17 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 final class RenderScopeTest extends TestCase
 {
-    /** @var list<string> */
-    private array $tempDirs = [];
-
-    protected function tearDown(): void
-    {
-        foreach ($this->tempDirs as $dir) {
-            $this->removeDirectory($dir);
-        }
-
-        parent::tearDown();
-    }
+    use TemporaryViews;
 
     public function testSharedDataReachesRootIncludeLayoutAndEach(): void
     {
@@ -275,54 +265,5 @@ final class RenderScopeTest extends TestCase
         }
 
         $this->assertSame('none', (string) $view->render('probe'));
-    }
-
-    /** @param array<string, string> $files */
-    private function views(array $files): string
-    {
-        $dir = sys_get_temp_dir() . '/kaly-tpl-' . bin2hex(random_bytes(6));
-        $this->tempDirs[] = $dir;
-
-        foreach ($files as $name => $contents) {
-            $path = $dir . '/' . $name;
-            $parent = dirname($path);
-            if (!is_dir($parent) && !mkdir($parent, recursive: true) && !is_dir($parent)) {
-                throw new \RuntimeException(sprintf('Unable to create test directory "%s".', $parent));
-            }
-
-            if (file_put_contents($path, $contents) === false) {
-                throw new \RuntimeException(sprintf('Unable to write test template "%s".', $path));
-            }
-        }
-
-        return $dir;
-    }
-
-    private function removeDirectory(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $item) {
-            $path = $item->getPathname();
-            if ($item->isDir()) {
-                rmdir($path);
-                continue;
-            }
-
-            if (function_exists('opcache_invalidate')) {
-                opcache_invalidate($path, true);
-            }
-            unlink($path);
-        }
-
-        clearstatcache(true, $dir);
-        rmdir($dir);
     }
 }

@@ -22,6 +22,7 @@ final class ViewEngine
     private ?TemplateDocblocker $docblocker = null;
     private Escaper $escaper;
     private ValueFormatter $formatter;
+    private bool $customFormatter = false;
 
     public function __construct(string $viewsPath, string $extension = 'phtml')
     {
@@ -58,11 +59,18 @@ final class ViewEngine
     public function formatter(ValueFormatter $formatter): self
     {
         $this->formatter = $formatter;
+        $this->customFormatter = true;
         return $this;
     }
 
     public function locale(string $locale, string $currency = 'EUR', string|\DateTimeZone|null $timezone = null): self
     {
+        if ($this->customFormatter) {
+            throw new ViewLogicException(
+                'locale() would replace the custom formatter: call it before formatter(), or configure the custom formatter.',
+            );
+        }
+
         $this->formatter = new DefaultValueFormatter(
             locale: $locale,
             currency: $currency,
