@@ -33,19 +33,19 @@ final readonly class EachOptions
         public int $maxDepth = 50,
     ) {
         if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $as)) {
-            throw new \InvalidArgumentException(sprintf('Invalid item variable name "%s".', $as));
+            throw new ViewUsageException(sprintf('Invalid item variable name "%s".', $as));
         }
         if ($as === 'v' || $as === 'key' || $as === 'loop' || str_starts_with($as, '__kaly')) {
-            throw new \InvalidArgumentException(sprintf('Item variable name "%s" is reserved.', $as));
+            throw new ViewUsageException(sprintf('Item variable name "%s" is reserved.', $as));
         }
         if ($baseDepth < 0) {
-            throw new \InvalidArgumentException('Loop depth cannot be negative.');
+            throw new ViewUsageException('Loop depth cannot be negative.');
         }
         if ($maxDepth < 0) {
-            throw new \InvalidArgumentException('Maximum loop depth cannot be negative.');
+            throw new ViewUsageException('Maximum loop depth cannot be negative.');
         }
         if ($baseDepth >= $maxDepth) {
-            throw new \LogicException(sprintf('Maximum loop depth of %d exceeded.', $maxDepth));
+            throw new ViewLogicException(sprintf('Maximum loop depth of %d exceeded.', $maxDepth));
         }
     }
 

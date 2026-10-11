@@ -87,6 +87,7 @@ interface HtmlView
 
     public function end(): void;
 
+    /** Render a named block; a string default is escaped, an Html default is output as is. */
     public function block(string $name, string|Html $default = ''): Html;
 
     public function stack(string $name): Html;

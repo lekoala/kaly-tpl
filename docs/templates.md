@@ -68,7 +68,7 @@ $view->render('account/index', ['account' => $account], sharedData: ['url' => $u
 Locals override globals: a global is an engine-wide default that a template may specialize. Shared data cannot be
 shadowed: a name present in `sharedData` cannot also be a global, nor be redefined by any template of the same render
 (root `$data`, `inc()` or `layout()` data, the layout `content`, or the `each()` item, `key` and `loop` variables).
-Such a collision throws an `\InvalidArgumentException` naming the conflicting variables and the template chain:
+Such a collision throws a `Kaly\Tpl\ViewUsageException` (an `\InvalidArgumentException`) naming the conflicting variables and the template chain:
 
 ```text
 Template data conflicts with shared render data: "url" (template chain: users/index > users/card).

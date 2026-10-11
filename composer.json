@@ -14,8 +14,7 @@
     },
     "require-dev": {
         "carthage-software/mago": "^1",
-        "composer/ca-bundle": "^1.5",
-        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan": "^2.3",
         "phpunit/phpunit": "^12"
     },
     "autoload": {

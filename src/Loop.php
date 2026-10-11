@@ -53,7 +53,7 @@ final readonly class Loop
     public function length(): int
     {
         if ($this->length === null) {
-            throw new \LogicException('Loop length is only available for countable iterables.');
+            throw new ViewLogicException('Loop length is only available for countable iterables.');
         }
 
         return $this->length;
@@ -116,7 +116,7 @@ final readonly class Loop
     public function cycle(mixed ...$values): mixed
     {
         if ($values === []) {
-            throw new \InvalidArgumentException('Loop cycle requires at least one value.');
+            throw new ViewUsageException('Loop cycle requires at least one value.');
         }
 
         return $values[$this->frame->index0 % count($values)];

@@ -78,12 +78,12 @@ final class ViewEngine
     public function addPath(string $namespace, string $path): self
     {
         if ($namespace !== '' && !preg_match('/^[A-Za-z_][A-Za-z0-9_.-]*$/', $namespace)) {
-            throw new \InvalidArgumentException(sprintf('Invalid view namespace "%s".', $namespace));
+            throw new ViewUsageException(sprintf('Invalid view namespace "%s".', $namespace));
         }
 
         $real = realpath($path);
         if ($real === false || !is_dir($real)) {
-            throw new \InvalidArgumentException(sprintf('Invalid view path "%s".', $path));
+            throw new ViewUsageException(sprintf('Invalid view path "%s".', $path));
         }
 
         $this->paths[$namespace] = rtrim($real, DIRECTORY_SEPARATOR);
@@ -142,10 +142,13 @@ final class ViewEngine
             while (($nextLayout = $context->consumeLayout()) !== null) {
                 $layoutDepth++;
                 if ($layoutDepth > self::MAX_LAYOUT_DEPTH) {
-                    throw new \LogicException(sprintf('Maximum layout depth of %d exceeded.', self::MAX_LAYOUT_DEPTH));
+                    throw new ViewLogicException(sprintf(
+                        'Maximum layout depth of %d exceeded.',
+                        self::MAX_LAYOUT_DEPTH,
+                    ));
                 }
                 if (array_key_exists($nextLayout, $seenLayouts)) {
-                    throw new \LogicException(sprintf('Circular layout chain detected at "%s".', $nextLayout));
+                    throw new ViewLogicException(sprintf('Circular layout chain detected at "%s".', $nextLayout));
                 }
                 $seenLayouts[$nextLayout] = true;
 
@@ -200,12 +203,12 @@ final class ViewEngine
 
                 $__kalyContext->assertSameCaptures($__kalySnapshot);
                 if (ob_get_level() !== ($__kalyBufferLevel + 1)) {
-                    throw new \LogicException('Template changed the output buffer stack unexpectedly.');
+                    throw new ViewLogicException('Template changed the output buffer stack unexpectedly.');
                 }
 
                 $__kalyOutput = ob_get_clean();
                 if ($__kalyOutput === false) {
-                    throw new \LogicException('Template output buffer is not available.');
+                    throw new ViewLogicException('Template output buffer is not available.');
                 }
 
                 return new Html($__kalyOutput);
@@ -273,14 +276,14 @@ final class ViewEngine
     private function assertDataName(string $name): void
     {
         if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $name)) {
-            throw new \InvalidArgumentException(sprintf('Invalid template variable name "%s".', $name));
+            throw new ViewUsageException(sprintf('Invalid template variable name "%s".', $name));
         }
     }
 
     private function assertAvailableDataName(string $name): void
     {
         if ($name === 'v' || str_starts_with($name, '__kaly')) {
-            throw new \InvalidArgumentException(sprintf('"$%s" is reserved by the view engine.', $name));
+            throw new ViewUsageException(sprintf('"$%s" is reserved by the view engine.', $name));
         }
     }
 
@@ -288,13 +291,13 @@ final class ViewEngine
     {
         [$namespace, $name] = $this->splitName($template);
         if (!array_key_exists($namespace, $this->paths)) {
-            throw new \InvalidArgumentException(sprintf('Unknown view namespace "%s".', $namespace));
+            throw new ViewUsageException(sprintf('Unknown view namespace "%s".', $namespace));
         }
 
         $name = trim(str_replace('\\', '/', $name), '/');
         $segments = explode('/', $name);
         if ($name === '' || str_contains($name, "\0") || in_array('..', $segments, true)) {
-            throw new \InvalidArgumentException(sprintf('Invalid template name "%s".', $template));
+            throw new ViewUsageException(sprintf('Invalid template name "%s".', $template));
         }
 
         $extension = '.' . $this->extension;
@@ -335,7 +338,7 @@ final class ViewEngine
     {
         $extension = ltrim(trim($extension), '.');
         if ($extension === '' || strpbrk($extension, "/\\\0") !== false) {
-            throw new \InvalidArgumentException(sprintf('Invalid template extension "%s".', $extension));
+            throw new ViewUsageException(sprintf('Invalid template extension "%s".', $extension));
         }
 
         return $extension;

@@ -44,6 +44,23 @@ final class ValueFormatterTest extends TestCase
         $formatter->percent(0.42, -1);
     }
 
+    public function testReusedFormattersKeepPerCallOptions(): void
+    {
+        $formatter = new DefaultValueFormatter('en');
+        $date = new \DateTimeImmutable('2026-01-01T23:30:00+00:00');
+        $brussels = (new DefaultValueFormatter('en', timezone: new \DateTimeZone('Europe/Brussels')))->time($date);
+        $tokyo = (new DefaultValueFormatter('en', timezone: new \DateTimeZone('Asia/Tokyo')))->time($date);
+
+        $this->assertSame('1,235', $formatter->number(1234.56));
+        $this->assertSame('1,234.56', $formatter->number(1234.56, 2));
+        $this->assertSame('1,235', $formatter->number(1234.56));
+        $this->assertSame('42%', $formatter->percent(0.42));
+        $this->assertSame('42.0%', $formatter->percent(0.42, 1));
+        $this->assertSame($formatter->time($date->setTimezone(new \DateTimeZone('Europe/Brussels'))), $brussels);
+        $this->assertSame($formatter->time($date->setTimezone(new \DateTimeZone('Asia/Tokyo'))), $tokyo);
+        $this->assertNotSame($brussels, $tokyo);
+    }
+
     public function testDurationFormatsSecondsDeterministically(): void
     {
         $formatter = new DefaultValueFormatter();

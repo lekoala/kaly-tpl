@@ -72,7 +72,7 @@ final class AttributeEscaper
         foreach ($attributes as $name => $value) {
             $name = (string) $name;
             if (!preg_match('/^[A-Za-z_:][A-Za-z0-9_:.\-]*$/', $name)) {
-                throw new \InvalidArgumentException(sprintf('Invalid HTML attribute name "%s".', $name));
+                throw new ViewUsageException(sprintf('Invalid HTML attribute name "%s".', $name));
             }
 
             if ($value === null) {
@@ -81,15 +81,12 @@ final class AttributeEscaper
 
             $normalizedName = strtolower($name);
             if (str_starts_with($normalizedName, 'on') || $normalizedName === 'srcdoc') {
-                throw new \InvalidArgumentException(sprintf(
-                    'Attribute "%s" requires a dedicated output context.',
-                    $name,
-                ));
+                throw new ViewUsageException(sprintf('Attribute "%s" requires a dedicated output context.', $name));
             }
 
             if (in_array($normalizedName, self::URL_ATTRIBUTES, true)) {
                 if (!is_string($value) && !$value instanceof \Stringable) {
-                    throw new \InvalidArgumentException(sprintf('URL attribute "%s" must be stringable.', $name));
+                    throw new ViewUsageException(sprintf('URL attribute "%s" must be stringable.', $name));
                 }
                 $out[] = sprintf('%s="%s"', $name, $this->escaper->url($value));
                 continue;
@@ -174,7 +171,7 @@ final class AttributeEscaper
         foreach ($vars as $name => $value) {
             $name = (string) $name;
             if (!preg_match('/^--[A-Za-z0-9_-]+$/', $name)) {
-                throw new \InvalidArgumentException(sprintf('Invalid CSS custom property "%s".', $name));
+                throw new ViewUsageException(sprintf('Invalid CSS custom property "%s".', $name));
             }
 
             if ($value === null) {
@@ -183,7 +180,7 @@ final class AttributeEscaper
 
             $string = trim($this->string($value));
             if (preg_match('/[;{}]/', $string)) {
-                throw new \InvalidArgumentException(sprintf('Unsafe CSS custom property value for "%s".', $name));
+                throw new ViewUsageException(sprintf('Unsafe CSS custom property value for "%s".', $name));
             }
 
             $decls[] = $name . ': ' . $string;
@@ -205,10 +202,7 @@ final class AttributeEscaper
                 continue;
             }
 
-            throw new \InvalidArgumentException(sprintf(
-                'Cannot render attribute list item from %s.',
-                get_debug_type($item),
-            ));
+            throw new ViewUsageException(sprintf('Cannot render attribute list item from %s.', get_debug_type($item)));
         }
 
         return implode(' ', $items);
@@ -242,7 +236,7 @@ final class AttributeEscaper
             return;
         }
 
-        throw new \InvalidArgumentException(sprintf('Cannot render CSS class from %s.', get_debug_type($value)));
+        throw new ViewUsageException(sprintf('Cannot render CSS class from %s.', get_debug_type($value)));
     }
 
     /**
@@ -273,6 +267,6 @@ final class AttributeEscaper
             return (string) $value;
         }
 
-        throw new \InvalidArgumentException(sprintf('Cannot render attribute value from %s.', get_debug_type($value)));
+        throw new ViewUsageException(sprintf('Cannot render attribute value from %s.', get_debug_type($value)));
     }
 }

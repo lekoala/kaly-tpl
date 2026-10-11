@@ -10,7 +10,7 @@ namespace Kaly\Tpl;
  * The original exception is preserved as the previous exception and the resolved
  * template include chain is available through {@see self::templateStack()}.
  */
-final class ViewException extends \RuntimeException
+final class ViewException extends \RuntimeException implements ExceptionInterface
 {
     /** @param list<string> $templateStack */
     public function __construct(
@@ -30,15 +30,15 @@ final class ViewException extends \RuntimeException
     /**
      * Wrap a render failure with its template chain, preserving engine-level errors.
      *
+     * Only exceptions thrown by the engine itself ({@see ExceptionInterface}) are
+     * let through: anything else comes from application code and is always wrapped,
+     * whatever its class.
+     *
      * @param list<string> $templateStack
      */
     public static function wrap(\Throwable $exception, array $templateStack = []): \Throwable
     {
-        if (
-            $exception instanceof self
-            || $exception instanceof \InvalidArgumentException
-            || $exception instanceof \LogicException
-        ) {
+        if ($exception instanceof ExceptionInterface) {
             return $exception;
         }
 

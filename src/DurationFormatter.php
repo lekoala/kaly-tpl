@@ -17,7 +17,7 @@ final class DurationFormatter
     public static function intervalSeconds(\DateInterval $interval): float
     {
         if ($interval->days === false && ($interval->y + $interval->m) !== 0) {
-            throw new \InvalidArgumentException(
+            throw new ViewUsageException(
                 'DateInterval with years or months is calendar-relative and cannot be formatted as a duration.',
             );
         }
@@ -36,7 +36,7 @@ final class DurationFormatter
         return $sign . match ($style) {
             'short' => self::clock($total),
             'long' => self::units($total),
-            default => throw new \InvalidArgumentException(sprintf('Unknown duration style "%s".', $style)),
+            default => throw new ViewUsageException(sprintf('Unknown duration style "%s".', $style)),
         };
     }
 

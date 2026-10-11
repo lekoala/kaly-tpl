@@ -20,20 +20,39 @@ and layout renders.
 
 ## What is wrapped
 
-`ViewException` extends `\RuntimeException`. The engine only wraps "unexpected" failures:
+`ViewException` extends `\RuntimeException`. The decision depends on where the exception comes from, not on its class.
 
-- template runtime errors (`\RuntimeException`, `\Error`, application exceptions, …);
-- failures inside partials and layouts.
+Every exception thrown by application code is wrapped, whatever its type: a `\DomainException`, an HTTP exception, an
+`\Error`, a `\ValueError` from a formatter… The same goes for engine runtime failures such as a missing view.
 
-It deliberately does **not** wrap the two exception types the engine uses for configuration and usage errors, so existing
-`catch` blocks keep working:
+Usage errors raised by the engine itself are **not** wrapped, so the specific error reaches the caller directly. They
+keep the standard SPL parents, so existing `catch` blocks keep working:
 
-- `\LogicException` — unclosed capture, layouts selected from a partial, circular layout chain, maximum depth;
-- `\InvalidArgumentException` — invalid template names, reserved data names, invalid view paths, collisions with
-  shared render data (the message itself includes the template chain).
+- `Kaly\Tpl\ViewLogicException` (a `\LogicException`) — unclosed capture, layouts selected from a partial, circular
+  layout chain, maximum loop, layout or template depth;
+- `Kaly\Tpl\ViewUsageException` (an `\InvalidArgumentException`) — invalid template names, reserved data names, invalid
+  view paths, invalid escaping or formatting input, collisions with shared render data (the message itself includes the
+  template chain).
 
-This keeps the include chain focused on render-time failures while preserving the sharp, specific errors for engine
-misuse.
+All engine exceptions, `ViewException` included, implement `Kaly\Tpl\ExceptionInterface`.
+
+### Unwrapping application exceptions
+
+An error handler that maps exception classes to HTTP statuses must look at the previous exception:
+
+```php
+try {
+    echo $view->render('users/show', ['user' => $user]);
+} catch (ViewException $exception) {
+    throw $exception->getPrevious() ?? $exception; // e.g. rethrow the original 404
+}
+```
+
+## Recursive includes
+
+A render nests at most 256 templates through `inc()` and `each()`. A partial that includes itself, directly
+or through a cycle, fails with a `ViewLogicException` that shows the end of the chain. Without that limit it would end in
+an uncatchable memory exhaustion fatal error.
 
 ## Debug-only template headers
 

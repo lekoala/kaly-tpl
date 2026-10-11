@@ -64,7 +64,8 @@ Blocks and stacks use balanced captures:
 <?php $v->end() ?>
 ```
 
-- `start($name)` / `end()` define a named block rendered later with `$v->block($name)`.
+- `start($name)` / `end()` define a named block rendered later with `$v->block($name)`. The optional fallback of
+  `$v->block($name, $default)` is escaped when it is a string; pass `$v->html(...)` for trusted markup.
 - `push($name)` / `end()` append to a stack rendered with `$v->stack($name)`.
 
 A capture must be closed by the same template scope that opened it. Failed templates restore the render context and output

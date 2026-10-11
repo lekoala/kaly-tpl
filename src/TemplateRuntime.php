@@ -176,9 +176,7 @@ final class TemplateRuntime implements HtmlView
     {
         if ($as instanceof EachOptions) {
             if ($empty !== null || $data !== []) {
-                throw new \InvalidArgumentException(
-                    'Do not combine EachOptions with the short-form empty/data arguments.',
-                );
+                throw new ViewUsageException('Do not combine EachOptions with the short-form empty/data arguments.');
             }
 
             return $as;
@@ -191,7 +189,7 @@ final class TemplateRuntime implements HtmlView
     public function layout(string $template, array $data = []): void
     {
         if (!$this->allowLayout) {
-            throw new \LogicException(
+            throw new ViewLogicException(
                 'Layouts can only be selected by a top-level view or another layout, not by a partial include.',
             );
         }
@@ -225,7 +223,11 @@ final class TemplateRuntime implements HtmlView
 
     public function block(string $name, string|Html $default = ''): Html
     {
-        return $this->context->getBlock($name, $default);
+        // A plain string default is escaped like any other value; pass Html for markup.
+        return $this->context->getBlock(
+            $name,
+            $default instanceof Html ? $default : new Html($this->escaper->html($default)),
+        );
     }
 
     public function stack(string $name): Html

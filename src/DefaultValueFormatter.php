@@ -9,11 +9,29 @@ namespace Kaly\Tpl;
  */
 final readonly class DefaultValueFormatter implements ValueFormatter
 {
+    /**
+     * ICU formatters are expensive to build, so they are reused across calls.
+     *
+     * @var \ArrayObject<string, \NumberFormatter>
+     */
+    private \ArrayObject $numberFormatters;
+
+    /** @var \ArrayObject<string, \IntlDateFormatter> */
+    private \ArrayObject $dateFormatters;
+
     public function __construct(
         private string $locale = 'en',
         private string $currency = 'EUR',
         private ?\DateTimeZone $timezone = null,
-    ) {}
+    ) {
+        /** @var \ArrayObject<string, \NumberFormatter> $numberFormatters */
+        $numberFormatters = new \ArrayObject();
+        /** @var \ArrayObject<string, \IntlDateFormatter> $dateFormatters */
+        $dateFormatters = new \ArrayObject();
+
+        $this->numberFormatters = $numberFormatters;
+        $this->dateFormatters = $dateFormatters;
+    }
 
     public function date(\DateTimeInterface|string|null $value, string $style = 'medium'): string
     {
@@ -58,7 +76,7 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         $value = $this->numericValue($amount);
 
         if (class_exists(\NumberFormatter::class)) {
-            $formatter = new \NumberFormatter($this->locale, \NumberFormatter::CURRENCY);
+            $formatter = $this->numberFormatter(\NumberFormatter::CURRENCY);
             $result = $formatter->formatCurrency($value, $currency);
             if ($result !== false) {
                 return $result;
@@ -78,8 +96,7 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         $number = $this->numericValue($value);
 
         if (class_exists(\NumberFormatter::class)) {
-            $formatter = new \NumberFormatter($this->locale, \NumberFormatter::DECIMAL);
-            $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, $decimals);
+            $formatter = $this->numberFormatter(\NumberFormatter::DECIMAL, $decimals);
             $result = $formatter->format($number);
             if ($result !== false) {
                 return $result;
@@ -99,8 +116,7 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         $ratio = $this->numericValue($value);
 
         if (class_exists(\NumberFormatter::class)) {
-            $formatter = new \NumberFormatter($this->locale, \NumberFormatter::PERCENT);
-            $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, $decimals);
+            $formatter = $this->numberFormatter(\NumberFormatter::PERCENT, $decimals);
             $result = $formatter->format($ratio);
             if ($result !== false) {
                 return $result;
@@ -150,25 +166,50 @@ final readonly class DefaultValueFormatter implements ValueFormatter
             // dateValue() already applied the configured timezone. ICU only knows
             // region identifiers: offsets (+05:45) and abbreviations (Z, BST, CEST)
             // are pinned to the offset of this instant, keeping the PHP wall time.
-            $timezone = $date->getTimezone();
+            $timezone = new \DateTimeZone($date->format('e'));
             if ($timezone->getLocation() === false) {
                 $timezone = new \DateTimeZone($date->format('P'));
             }
 
-            $formatter = new \IntlDateFormatter(
-                $this->locale,
-                $this->intlStyle($dateStyle),
-                $this->intlStyle($timeStyle),
-                $timezone,
-            );
-
-            $result = $formatter->format($date);
+            $result = $this->dateFormatter($dateStyle, $timeStyle, $timezone)->format($date);
             if ($result !== false) {
                 return $result;
             }
         }
 
         return $date->format($fallback);
+    }
+
+    private function numberFormatter(int $style, ?int $decimals = null): \NumberFormatter
+    {
+        $key = $style . ':' . ($decimals ?? '');
+        $formatter = $this->numberFormatters[$key] ?? null;
+        if ($formatter === null) {
+            $formatter = new \NumberFormatter($this->locale, $style);
+            if ($decimals !== null) {
+                $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, $decimals);
+            }
+            $this->numberFormatters[$key] = $formatter;
+        }
+
+        return $formatter;
+    }
+
+    private function dateFormatter(string $dateStyle, string $timeStyle, \DateTimeZone $timezone): \IntlDateFormatter
+    {
+        $key = $dateStyle . ':' . $timeStyle . ':' . $timezone->getName();
+        $formatter = $this->dateFormatters[$key] ?? null;
+        if ($formatter === null) {
+            $formatter = new \IntlDateFormatter(
+                $this->locale,
+                $this->intlStyle($dateStyle),
+                $this->intlStyle($timeStyle),
+                $timezone,
+            );
+            $this->dateFormatters[$key] = $formatter;
+        }
+
+        return $formatter;
     }
 
     private function intlStyle(string $style): int
@@ -189,12 +230,12 @@ final readonly class DefaultValueFormatter implements ValueFormatter
     private function numericValue(int|float|string $value): float
     {
         if (is_string($value) && !is_numeric($value)) {
-            throw new \InvalidArgumentException(sprintf('Expected a numeric value, got "%s".', $value));
+            throw new ViewUsageException(sprintf('Expected a numeric value, got "%s".', $value));
         }
 
         $number = (float) $value;
         if (!is_finite($number)) {
-            throw new \InvalidArgumentException('Numeric value must be finite.');
+            throw new ViewUsageException('Numeric value must be finite.');
         }
 
         return $number;
@@ -203,7 +244,7 @@ final readonly class DefaultValueFormatter implements ValueFormatter
     private function assertDecimals(int $decimals): void
     {
         if ($decimals < 0) {
-            throw new \InvalidArgumentException('Decimal places cannot be negative.');
+            throw new ViewUsageException('Decimal places cannot be negative.');
         }
     }
 }

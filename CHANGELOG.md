@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Engine exceptions: `ViewUsageException` (an `\InvalidArgumentException`) and `ViewLogicException` (a
+  `\LogicException`), both implementing the `ExceptionInterface` marker, like `ViewException`.
+
+### Changed
+
+- **Breaking:** a string default passed to `$v->block($name, $default)` is now escaped. Pass `$v->html(...)` for markup.
+- **Breaking:** `ViewException` now wraps every application exception, whatever its class (`\DomainException`,
+  HTTP exceptions, …). Only engine exceptions pass through unwrapped. Use `getPrevious()` to get the original.
+- ext-intl number and date formatters are reused across calls, about 15 to 20 times faster in formatted lists.
+- Dev dependencies: removed `composer/ca-bundle`, PHPStan `^2.3`.
+
+### Fixed
+
+- A recursive include now throws a `ViewLogicException` after 256 nested templates, instead of exhausting memory.
+
 ## 0.2.1
 
 ### Fixed

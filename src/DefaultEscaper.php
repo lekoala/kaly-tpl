@@ -103,6 +103,6 @@ final class DefaultEscaper implements Escaper
             return (string) $value;
         }
 
-        throw new \InvalidArgumentException(sprintf('Cannot escape value of type %s.', get_debug_type($value)));
+        throw new ViewUsageException(sprintf('Cannot escape value of type %s.', get_debug_type($value)));
     }
 }

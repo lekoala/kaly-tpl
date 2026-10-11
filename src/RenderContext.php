@@ -12,6 +12,8 @@ namespace Kaly\Tpl;
  */
 final class RenderContext
 {
+    private const MAX_TEMPLATE_DEPTH = 256;
+
     private ?string $layout = null;
 
     /** @var array<string, mixed> */
@@ -49,6 +51,17 @@ final class RenderContext
 
     public function enterTemplate(string $template): void
     {
+        // Guards against recursive includes, which would otherwise end in an
+        // uncatchable memory exhaustion fatal error.
+        if (count($this->templateStack) >= self::MAX_TEMPLATE_DEPTH) {
+            throw new ViewLogicException(sprintf(
+                'Maximum template depth of %d exceeded at "%s", check for a recursive include (template chain: … > %s).',
+                self::MAX_TEMPLATE_DEPTH,
+                $template,
+                implode(' > ', array_slice($this->templateStack, -5)),
+            ));
+        }
+
         $this->templateStack[] = $template;
     }
 
@@ -74,7 +87,7 @@ final class RenderContext
             ? sprintf(' (template chain: %s)', implode(' > ', $this->templateStack))
             : '';
 
-        throw new \InvalidArgumentException(sprintf(
+        throw new ViewUsageException(sprintf(
             '%s: %s%s.',
             $message,
             implode(', ', array_map(static fn(string $name): string => '"' . $name . '"', $names)),
@@ -135,9 +148,9 @@ final class RenderContext
         $this->blocks[$name] = $html instanceof Html ? $html : new Html($html);
     }
 
-    public function getBlock(string $name, string|Html $default = ''): Html
+    public function getBlock(string $name, ?Html $default = null): Html
     {
-        return $this->blocks[$name] ?? ($default instanceof Html ? $default : new Html($default));
+        return $this->blocks[$name] ?? $default ?? new Html('');
     }
 
     public function pushStack(string $name, string|Html $html): void
@@ -164,7 +177,7 @@ final class RenderContext
     public function begin(string $type, string $name): void
     {
         if ($type !== 'block' && $type !== 'stack') {
-            throw new \InvalidArgumentException('Capture type must be block or stack.');
+            throw new ViewUsageException('Capture type must be block or stack.');
         }
 
         $this->assertName($name);
@@ -178,12 +191,12 @@ final class RenderContext
     public function end(): void
     {
         if ($this->captures === []) {
-            throw new \LogicException('No open view capture to end.');
+            throw new ViewLogicException('No open view capture to end.');
         }
 
         $capture = $this->captures[count($this->captures) - 1];
         if (ob_get_level() !== $capture['level']) {
-            throw new \LogicException(sprintf(
+            throw new ViewLogicException(sprintf(
                 'View capture "%s" cannot be closed from another output scope.',
                 $capture['name'],
             ));
@@ -192,7 +205,7 @@ final class RenderContext
         array_pop($this->captures);
         $buffer = ob_get_clean();
         if ($buffer === false) {
-            throw new \LogicException(sprintf(
+            throw new ViewLogicException(sprintf(
                 'Output buffer for view capture "%s" is not available.',
                 $capture['name'],
             ));
@@ -212,7 +225,7 @@ final class RenderContext
     {
         if ($this->captures !== []) {
             $open = $this->captures[count($this->captures) - 1];
-            throw new \LogicException(sprintf('Unclosed view capture "%s".', $open['name']));
+            throw new ViewLogicException(sprintf('Unclosed view capture "%s".', $open['name']));
         }
     }
 
@@ -225,10 +238,10 @@ final class RenderContext
 
         if (count($this->captures) > count($snapshot->captures)) {
             $open = $this->captures[count($this->captures) - 1];
-            throw new \LogicException(sprintf('Unclosed view capture "%s".', $open['name']));
+            throw new ViewLogicException(sprintf('Unclosed view capture "%s".', $open['name']));
         }
 
-        throw new \LogicException('A view capture was closed outside the template scope that opened it.');
+        throw new ViewLogicException('A view capture was closed outside the template scope that opened it.');
     }
 
     /** @internal Used by ViewEngine to roll back state after a failed template. */
@@ -248,7 +261,7 @@ final class RenderContext
     private function assertName(string $name): void
     {
         if (!preg_match('/^[A-Za-z][A-Za-z0-9_.-]*$/', $name)) {
-            throw new \InvalidArgumentException(sprintf('Invalid view section name "%s".', $name));
+            throw new ViewUsageException(sprintf('Invalid view section name "%s".', $name));
         }
     }
 }
