@@ -13,6 +13,7 @@
 - **Breaking:** `ViewException` now wraps every application exception, whatever its class (`\DomainException`,
   HTTP exceptions, …). Only engine exceptions pass through unwrapped. Use `getPrevious()` to get the original.
 - ext-intl number and date formatters are reused across calls, about 15 to 20 times faster in formatted lists.
+- Resolved template files are cached per engine (except in debug mode), about twice as fast for `each()` on Windows.
 - `each()` data can no longer contain the item variable, `key` or `loop` (previously silently overridden).
 - Unknown date styles throw instead of falling back to `medium`.
 - Invalid locales are rejected by `locale()` / `DefaultValueFormatter` instead of failing at first render.

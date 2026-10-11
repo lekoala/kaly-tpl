@@ -85,6 +85,40 @@ final class RenderSafetyTest extends TestCase
         $this->assertSame('&lt;b&gt;text&lt;/b&gt;|<b>html</b>', $html);
     }
 
+    public function testResolvedTemplatesAreCachedButMissingOnesAreNot(): void
+    {
+        $dir = $this->views(['index.phtml' => 'index']);
+        $view = new ViewEngine($dir);
+
+        $this->assertFalse($view->exists('late'));
+        file_put_contents($dir . '/late.phtml', 'late');
+        $this->assertSame('late', (string) $view->render('late'));
+    }
+
+    public function testAddPathInvalidatesResolvedTemplates(): void
+    {
+        $first = $this->views(['card.phtml' => 'first']);
+        $second = $this->views(['card.phtml' => 'second']);
+        $view = (new ViewEngine($first))->addPath('ui', $first);
+
+        $this->assertSame('first', (string) $view->render('@ui/card'));
+        $this->assertSame('second', (string) $view->addPath('ui', $second)->render('@ui/card'));
+    }
+
+    public function testDebugModeResolvesTemplatesOnEveryRender(): void
+    {
+        $dir = $this->views(['index.phtml' => 'index']);
+        $view = (new ViewEngine($dir))->debug();
+
+        $this->assertSame('index', (string) $view->render('index'));
+        unlink($dir . '/index.phtml');
+
+        $this->expectException(ViewException::class);
+        $this->expectExceptionMessage('View "index" not found');
+
+        $view->render('index');
+    }
+
     /** @param array<string, string> $files */
     private function views(array $files): string
     {

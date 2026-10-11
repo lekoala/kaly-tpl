@@ -14,13 +14,10 @@ final class ViewEngine
 {
     private const MAX_LAYOUT_DEPTH = 32;
 
-    /** @var array<string, string> */
-    private array $paths = [];
-
     /** @var array<string, mixed> */
     private array $globals = [];
 
-    private string $extension;
+    private TemplateLocator $locator;
     private bool $debug = false;
     private ?TemplateDocblocker $docblocker = null;
     private Escaper $escaper;
@@ -28,7 +25,7 @@ final class ViewEngine
 
     public function __construct(string $viewsPath, string $extension = 'phtml')
     {
-        $this->extension = $this->normalizeExtension($extension);
+        $this->locator = new TemplateLocator($extension);
         $this->addPath('', $viewsPath);
         $this->escaper = new DefaultEscaper();
         $this->formatter = new DefaultValueFormatter();
@@ -77,16 +74,7 @@ final class ViewEngine
 
     public function addPath(string $namespace, string $path): self
     {
-        if ($namespace !== '' && !preg_match('/^[A-Za-z_][A-Za-z0-9_.-]*$/', $namespace)) {
-            throw new ViewUsageException(sprintf('Invalid view namespace "%s".', $namespace));
-        }
-
-        $real = realpath($path);
-        if ($real === false || !is_dir($real)) {
-            throw new ViewUsageException(sprintf('Invalid view path "%s".', $path));
-        }
-
-        $this->paths[$namespace] = rtrim($real, DIRECTORY_SEPARATOR);
+        $this->locator->addPath($namespace, $path);
         return $this;
     }
 
@@ -289,66 +277,7 @@ final class ViewEngine
 
     private function resolve(string $template): string
     {
-        [$namespace, $name] = $this->splitName($template);
-        if (!array_key_exists($namespace, $this->paths)) {
-            throw new ViewUsageException(sprintf('Unknown view namespace "%s".', $namespace));
-        }
-
-        $name = trim(str_replace('\\', '/', $name), '/');
-        $segments = explode('/', $name);
-        if ($name === '' || str_contains($name, "\0") || in_array('..', $segments, true)) {
-            throw new ViewUsageException(sprintf('Invalid template name "%s".', $template));
-        }
-
-        $extension = '.' . $this->extension;
-        if (!str_ends_with($name, $extension)) {
-            $name .= $extension;
-        }
-
-        $file = $this->paths[$namespace] . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $name);
-        $real = realpath($file);
-        if ($real === false || !is_file($real)) {
-            throw new \RuntimeException(sprintf('View "%s" not found at "%s".', $template, $file));
-        }
-
-        if (!$this->isWithinRoot($real, $this->paths[$namespace])) {
-            throw new \RuntimeException(sprintf('View "%s" resolves outside of its namespace.', $template));
-        }
-
-        return $real;
-    }
-
-    /** @return array{string, string} */
-    private function splitName(string $template): array
-    {
-        if (str_starts_with($template, '@')) {
-            $parts = explode('/', substr($template, 1), 2);
-            return [$parts[0], $parts[1] ?? ''];
-        }
-
-        if (str_contains($template, '::')) {
-            $parts = explode('::', $template, 2);
-            return [$parts[0], $parts[1]];
-        }
-
-        return ['', $template];
-    }
-
-    private function normalizeExtension(string $extension): string
-    {
-        $extension = ltrim(trim($extension), '.');
-        if ($extension === '' || strpbrk($extension, "/\\\0") !== false) {
-            throw new ViewUsageException(sprintf('Invalid template extension "%s".', $extension));
-        }
-
-        return $extension;
-    }
-
-    private function isWithinRoot(string $file, string $root): bool
-    {
-        $root = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-        $prefix = substr($file, 0, strlen($root));
-
-        return DIRECTORY_SEPARATOR === '\\' ? strcasecmp($prefix, $root) === 0 : $prefix === $root;
+        // Debug mode always hits the filesystem, so templates can move during development.
+        return $this->locator->resolve($template, fresh: $this->debug);
     }
 }
