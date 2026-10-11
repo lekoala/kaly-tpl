@@ -13,7 +13,12 @@
 - **Breaking:** `ViewException` now wraps every application exception, whatever its class (`\DomainException`,
   HTTP exceptions, …). Only engine exceptions pass through unwrapped. Use `getPrevious()` to get the original.
 - ext-intl number and date formatters are reused across calls, about 15 to 20 times faster in formatted lists.
-- Dev dependencies: removed `composer/ca-bundle`, PHPStan `^2.3`.
+- `each()` data can no longer contain the item variable, `key` or `loop` (previously silently overridden).
+- Unknown date styles throw instead of falling back to `medium`.
+- Invalid locales are rejected by `locale()` / `DefaultValueFormatter` instead of failing at first render.
+- `ext-intl` is listed in `suggest`.
+- Dev dependencies: removed `composer/ca-bundle`, PHPStan `^2.3`, Mago `^1.48`.
+- CI also runs the tests without ext-intl and with the lowest dependencies.
 
 ### Fixed
 

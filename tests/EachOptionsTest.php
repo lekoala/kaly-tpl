@@ -29,6 +29,24 @@ final class EachOptionsTest extends TestCase
         new EachOptions(as: $name);
     }
 
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function loopDataCollisions(): iterable
+    {
+        yield 'item' => [['user' => 1], '"user"'];
+        yield 'key' => [['key' => 1], '"key"'];
+        yield 'loop and item' => [['loop' => 1, 'user' => 1], '"user", "loop"'];
+    }
+
+    /** @param array<string, mixed> $data */
+    #[DataProvider('loopDataCollisions')]
+    public function testLoopDataCannotOverrideLoopVariables(array $data, string $names): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Loop data conflicts with variables set by each(): ' . $names . '.');
+
+        EachOptions::as('user')->data($data);
+    }
+
     public function testDepthAtMaximumIsRejected(): void
     {
         $this->expectException(\LogicException::class);

@@ -12,8 +12,11 @@
     "require": {
         "php": "^8.3"
     },
+    "suggest": {
+        "ext-intl": "Locale-aware date, number, money and percent formatting (neutral fallbacks otherwise)."
+    },
     "require-dev": {
-        "carthage-software/mago": "^1",
+        "carthage-software/mago": "^1.48",
         "phpstan/phpstan": "^2.3",
         "phpunit/phpunit": "^12"
     },

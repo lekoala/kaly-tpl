@@ -52,6 +52,9 @@ item template):
 <?= $v->each($cards, 'partials/card', as: 'card', empty: 'partials/empty', data: ['compact' => true]) ?>
 ```
 
+`data` cannot contain the item variable, `key` or `loop`: `each()` sets them for every item, so they throw instead of
+being silently overridden.
+
 ## Loop metadata
 
 ```php

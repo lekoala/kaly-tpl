@@ -15,7 +15,8 @@ Common display formatting is delegated to an injectable `ValueFormatter`:
 
 `DefaultValueFormatter` uses `IntlDateFormatter` and `NumberFormatter` when `ext-intl` is available. Without `ext-intl`,
 it uses deterministic neutral fallbacks (`Y-m-d`, `H:i`, `1,234.50 EUR`, and similar) instead of guessing locale rules.
-Invalid numeric strings and non-finite values fail loudly instead of being silently coerced to zero.
+Invalid numeric strings and non-finite values fail loudly instead of being silently coerced to zero. Date styles are
+`short`, `medium`, `long` and `full`; any other style throws.
 
 Durations are always deterministic and locale-neutral, regardless of `ext-intl`: `duration()` renders a clock-style
 `m:ss` or `h:mm:ss` (hours unbounded) by default, and a spelled-out `1 h 2 min 3 s` form with the `long` style. It
@@ -31,6 +32,9 @@ Locale, currency and timezone can be set on the engine:
 ```php
 $view->locale('fr_BE', currency: 'EUR', timezone: 'Europe/Brussels');
 ```
+
+The locale is validated right away (`fr_BE`, `fr-BE`, `zh_Hant_TW`, `en_US@currency=EUR`…), since ICU accepts almost
+any string and would only fail, or silently fall back, at the first render.
 
 ## Custom strategies
 

@@ -44,6 +44,41 @@ final class ValueFormatterTest extends TestCase
         $formatter->percent(0.42, -1);
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function invalidLocales(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'spaces' => ['not a locale'];
+        yield 'path' => ['../x'];
+        yield 'too long' => [str_repeat('a', 200)];
+    }
+
+    #[DataProvider('invalidLocales')]
+    public function testInvalidLocalesAreRejectedUpFront(string $locale): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid locale');
+
+        new DefaultValueFormatter($locale);
+    }
+
+    public function testValidLocaleShapesAreAccepted(): void
+    {
+        foreach (['en', 'fr_BE', 'fr-BE', 'zh_Hant_TW', 'en_US@currency=EUR'] as $locale) {
+            $this->assertSame('', (new DefaultValueFormatter($locale))->number(null));
+        }
+    }
+
+    public function testUnknownDateStylesAreRejected(): void
+    {
+        $formatter = new DefaultValueFormatter();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown date style "meduim".');
+
+        $formatter->date('2026-01-01', 'meduim');
+    }
+
     public function testReusedFormattersKeepPerCallOptions(): void
     {
         $formatter = new DefaultValueFormatter('en');

@@ -38,6 +38,12 @@ final readonly class EachOptions
         if ($as === 'v' || $as === 'key' || $as === 'loop' || str_starts_with($as, '__kaly')) {
             throw new ViewUsageException(sprintf('Item variable name "%s" is reserved.', $as));
         }
+        // These names are set by each() for every item and would silently override the data.
+        $collisions = array_intersect([$as, 'key', 'loop'], array_map('strval', array_keys($data)));
+        if ($collisions !== []) {
+            $names = implode(', ', array_map(static fn(string $name): string => '"' . $name . '"', $collisions));
+            throw new ViewUsageException(sprintf('Loop data conflicts with variables set by each(): %s.', $names));
+        }
         if ($baseDepth < 0) {
             throw new ViewUsageException('Loop depth cannot be negative.');
         }

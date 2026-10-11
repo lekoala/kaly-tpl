@@ -9,6 +9,11 @@ namespace Kaly\Tpl;
  */
 final readonly class DefaultValueFormatter implements ValueFormatter
 {
+    /** ICU locale identifier capacity (ULOC_FULLNAME_CAPACITY). */
+    private const MAX_LOCALE_LENGTH = 157;
+
+    private const DATE_STYLES = ['short', 'medium', 'long', 'full'];
+
     /**
      * ICU formatters are expensive to build, so they are reused across calls.
      *
@@ -24,6 +29,14 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         private string $currency = 'EUR',
         private ?\DateTimeZone $timezone = null,
     ) {
+        // ICU accepts almost any string, then fails or silently falls back at first use.
+        if (
+            strlen($locale) > self::MAX_LOCALE_LENGTH
+            || !preg_match('/^[A-Za-z]{2,8}([_-][A-Za-z0-9]{1,8})*(@[A-Za-z0-9=;_-]+)?$/', $locale)
+        ) {
+            throw new ViewUsageException(sprintf('Invalid locale "%s".', $locale));
+        }
+
         /** @var \ArrayObject<string, \NumberFormatter> $numberFormatters */
         $numberFormatters = new \ArrayObject();
         /** @var \ArrayObject<string, \IntlDateFormatter> $dateFormatters */
@@ -35,6 +48,7 @@ final readonly class DefaultValueFormatter implements ValueFormatter
 
     public function date(\DateTimeInterface|string|null $value, string $style = 'medium'): string
     {
+        $this->assertDateStyle($style);
         $date = $this->dateValue($value);
         if ($date === null) {
             return '';
@@ -45,6 +59,7 @@ final readonly class DefaultValueFormatter implements ValueFormatter
 
     public function time(\DateTimeInterface|string|null $value, string $style = 'short'): string
     {
+        $this->assertDateStyle($style);
         $date = $this->dateValue($value);
         if ($date === null) {
             return '';
@@ -58,6 +73,7 @@ final readonly class DefaultValueFormatter implements ValueFormatter
 
     public function datetime(\DateTimeInterface|string|null $value, string $style = 'medium'): string
     {
+        $this->assertDateStyle($style);
         $date = $this->dateValue($value);
         if ($date === null) {
             return '';
@@ -210,6 +226,13 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         }
 
         return $formatter;
+    }
+
+    private function assertDateStyle(string $style): void
+    {
+        if (!in_array($style, self::DATE_STYLES, true)) {
+            throw new ViewUsageException(sprintf('Unknown date style "%s".', $style));
+        }
     }
 
     private function intlStyle(string $style): int
