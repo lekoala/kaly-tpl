@@ -19,8 +19,19 @@ final class DocblockTypeMerger
      */
     private const REFINEMENTS = [
         'array' => ['array{', 'list', 'non-empty-array', 'non-empty-list', 'iterable'],
-        'string' => ['non-empty-string', 'numeric-string', 'class-string', 'literal-string'],
-        'int' => ['positive-int', 'negative-int', 'non-negative-int', 'non-positive-int', 'non-zero-int'],
+        'string' => ['non-empty-string', 'numeric-string', 'class-string', 'literal-string', 'scalar', 'array-key'],
+        'int' => [
+            'positive-int',
+            'negative-int',
+            'non-negative-int',
+            'non-positive-int',
+            'non-zero-int',
+            'scalar',
+            'numeric',
+            'array-key',
+        ],
+        'float' => ['scalar', 'numeric'],
+        'bool' => ['scalar'],
     ];
 
     public function merge(?string $existing, ?string $observed): string
@@ -47,18 +58,18 @@ final class DocblockTypeMerger
     }
 
     /**
-     * Split a union on its top-level `|` only, so `array<string, int|string>` stays whole.
+     * Split on a top-level separator only, so `array<string, int|string>` stays whole.
      *
      * @return list<string>
      */
-    private function splitUnion(string $type): array
+    private function splitUnion(string $type, string $separator = '|'): array
     {
         $types = [];
         $current = '';
         $depth = 0;
 
         foreach (str_split($type) as $char) {
-            if ($char === '|' && $depth === 0) {
+            if ($char === $separator && $depth === 0) {
                 $types[] = trim($current);
                 $current = '';
                 continue;
@@ -81,6 +92,28 @@ final class DocblockTypeMerger
      */
     private function refines(string $written, string $inferred): bool
     {
+        $written = $this->unwrap($written);
+        if ($written === $inferred) {
+            return true;
+        }
+
+        if (str_starts_with($written, '?')) {
+            return $inferred === 'null' || $this->refines(substr($written, 1), $inferred);
+        }
+
+        // A union covers each member; an intersection is more precise than each member.
+        foreach (['|', '&'] as $separator) {
+            foreach ($this->splitUnion($written, $separator) as $member) {
+                if ($member !== $written && $this->refines($member, $inferred)) {
+                    return true;
+                }
+            }
+        }
+
+        if ($written === 'object' && str_starts_with($inferred, '\\')) {
+            return true;
+        }
+
         if (str_starts_with($written, $inferred . '<')) {
             return true;
         }
@@ -90,11 +123,35 @@ final class DocblockTypeMerger
         }
 
         foreach (self::REFINEMENTS[$inferred] ?? [] as $prefix) {
-            if (str_starts_with($written, $prefix)) {
+            if (
+                $written === $prefix
+                || str_starts_with($written, $prefix . '<')
+                || $prefix === 'array{' && str_starts_with($written, $prefix)
+            ) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private function unwrap(string $type): string
+    {
+        while (str_starts_with($type, '(') && str_ends_with($type, ')')) {
+            $depth = 0;
+            foreach (str_split($type) as $index => $char) {
+                $depth += match ($char) {
+                    '(' => 1,
+                    ')' => -1,
+                    default => 0,
+                };
+                if ($depth === 0 && $index < (strlen($type) - 1)) {
+                    return $type;
+                }
+            }
+            $type = trim(substr($type, 1, -1));
+        }
+
+        return $type;
     }
 }

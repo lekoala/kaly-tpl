@@ -30,7 +30,13 @@ final class DurationFormatter
 
     public static function render(float $seconds, string $style): string
     {
-        $total = (int) round(abs($seconds));
+        $rounded = round(abs($seconds));
+        // PHP_INT_MAX rounds up as a float on 64-bit platforms: equality is unsafe too.
+        if (!is_finite($rounded) || $rounded >= (float) PHP_INT_MAX) {
+            throw new ViewUsageException('Duration is too large to format as integer seconds.');
+        }
+
+        $total = (int) $rounded;
         $sign = $seconds < 0 && $total > 0 ? '-' : '';
 
         return $sign . match ($style) {

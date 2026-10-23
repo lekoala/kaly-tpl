@@ -51,6 +51,10 @@ final readonly class TemplateDocblocker
             throw new \RuntimeException(sprintf('Unable to write template "%s".', $file));
         }
 
+        if (function_exists('opcache_invalidate')) {
+            opcache_invalidate($file, true);
+        }
+
         return true;
     }
 

@@ -82,8 +82,8 @@ final class SrcsetParser
             $descriptor = $candidate['descriptor'] ?? '1x';
             // HTML microsyntaxes: a width is a non-negative integer (leading zeros allowed), a
             // density a floating-point number (exponent allowed). Values are normalized for duplicates.
-            if (preg_match('/^(\d+)w$/', $descriptor, $match) && (int) $match[1] > 0) {
-                $key = 'w' . (int) $match[1];
+            if (preg_match('/^(\d+)w$/', $descriptor, $match) && ($digits = ltrim($match[1], '0')) !== '') {
+                $key = 'w' . $digits;
             } elseif (
                 preg_match('/^((?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?)x$/', $descriptor, $match)
                 && (float) $match[1] > 0

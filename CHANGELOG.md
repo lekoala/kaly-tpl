@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1
+
+### Fixed
+
+- Currency codes are validated as exactly three ASCII letters in the default formatter and `money()` overrides.
+- Very large `srcset` width descriptors are compared without integer truncation.
+- Durations outside the representable integer seconds range throw instead of overflowing.
+- Managed PHPDoc merging preserves nullable types, scalar supertypes, `object` and parenthesized unions/intersections.
+- Template docblock rewrites invalidate OPcache immediately.
+
+### Docs
+
+- Clarified complete `srcset` validation before URL filtering, CSS validation limits and PHPDoc class-name resolution.
+
 ## 0.3.0
 
 ### Added

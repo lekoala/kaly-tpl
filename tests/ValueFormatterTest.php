@@ -79,6 +79,71 @@ final class ValueFormatterTest extends TestCase
         }
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function invalidCurrencies(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'too short' => ['EU'];
+        yield 'too long' => ['INVALID'];
+        yield 'digits' => ['123'];
+        yield 'non ASCII' => ['ÉUR'];
+        yield 'trailing newline' => ["EUR\n"];
+    }
+
+    #[DataProvider('invalidCurrencies')]
+    public function testInvalidDefaultCurrenciesAreRejected(string $currency): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid currency');
+
+        new DefaultValueFormatter(currency: $currency);
+    }
+
+    #[DataProvider('invalidCurrencies')]
+    public function testInvalidCurrencyOverridesAreRejected(string $currency): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid currency');
+
+        (new DefaultValueFormatter())->money(10, $currency);
+    }
+
+    public function testMoneyAcceptsValidCurrencyShapes(): void
+    {
+        $formatter = new DefaultValueFormatter(currency: 'eur');
+
+        $this->assertNotSame('', $formatter->money(10));
+        $this->assertNotSame('', $formatter->money(10, 'USD'));
+        $this->assertNotSame('', $formatter->money(10, 'JPY'));
+    }
+
+    /** @return iterable<string, array{int|float|string}> */
+    public static function overflowingDurations(): iterable
+    {
+        yield 'integer maximum rounded as float' => [PHP_INT_MAX];
+        yield 'negative integer maximum' => [-PHP_INT_MAX];
+        yield 'huge positive' => [1e20];
+        yield 'huge negative string' => ['-1e20'];
+        yield 'largest finite float' => [PHP_FLOAT_MAX];
+    }
+
+    #[DataProvider('overflowingDurations')]
+    public function testDurationsOutsideIntegerRangeAreRejected(int|float|string $value): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Duration is too large');
+
+        (new DefaultValueFormatter())->duration($value);
+    }
+
+    public function testLargeRepresentableDurationsStillRender(): void
+    {
+        $seconds = PHP_INT_SIZE === 8 ? 9_223_372_036_854_774_784 : PHP_INT_MAX - 1;
+        $expected = sprintf('%d:%02d:%02d', intdiv($seconds, 3600), intdiv($seconds % 3600, 60), $seconds % 60);
+
+        $this->assertSame($expected, (new DefaultValueFormatter())->duration($seconds));
+    }
+
     public function testUnknownDateStylesAreRejected(): void
     {
         $formatter = new DefaultValueFormatter();
@@ -238,15 +303,20 @@ final class ValueFormatterTest extends TestCase
         ];
     }
 
-    public function testFallbackDateFormattingAppliesConfiguredTimezoneToStrings(): void
+    public function testFallbackFormattingWithoutIntl(): void
     {
         $autoload = var_export(dirname(__DIR__) . '/vendor/autoload.php', true);
         $code =
-            'if (class_exists("IntlDateFormatter")) { echo "HAS_INTL"; return; } '
+            'if (class_exists("IntlDateFormatter") || class_exists("NumberFormatter")) { echo "HAS_INTL"; return; } '
             . "require {$autoload}; "
             . '$f = new \Kaly\Tpl\DefaultValueFormatter("en", "EUR", new \DateTimeZone("Europe/Brussels")); '
-            . 'echo $f->datetime("2026-01-01T23:30:00+00:00"), "|", '
-            . '$f->datetime(new \DateTimeImmutable("2026-01-01T23:30:00+00:00"));';
+            . 'echo json_encode(['
+            . '$f->date("2026-01-01T23:30:00+00:00"), '
+            . '$f->time("2026-01-01T23:30:00+00:00"), '
+            . '$f->datetime("2026-01-01T23:30:00+00:00"), '
+            . '$f->datetime(new \DateTimeImmutable("2026-01-01T23:30:00+00:00")), '
+            . '$f->money(1234.5), $f->money(1234, "JPY"), $f->number(1234.5, 2), $f->percent(0.425, 1)'
+            . '], JSON_THROW_ON_ERROR);';
 
         $output = $this->runWithoutIntl($code);
 
@@ -254,7 +324,19 @@ final class ValueFormatterTest extends TestCase
             $this->markTestSkipped('ext-intl is statically loaded, cannot exercise the fallback.');
         }
 
-        $this->assertSame('2026-01-02 00:30|2026-01-02 00:30', $output);
+        $this->assertSame(
+            [
+                '2026-01-02',
+                '00:30',
+                '2026-01-02 00:30',
+                '2026-01-02 00:30',
+                '1,234.50 EUR',
+                '1,234.00 JPY',
+                '1,234.50',
+                '42.5%',
+            ],
+            json_decode($output, true, flags: JSON_THROW_ON_ERROR),
+        );
     }
 
     private function runWithoutIntl(string $code): string
@@ -272,9 +354,7 @@ final class ValueFormatterTest extends TestCase
         fclose($pipes[2]);
         $exit = proc_close($process);
 
-        if ($exit !== 0) {
-            $this->markTestSkipped('Fallback subprocess failed: ' . $stderr);
-        }
+        $this->assertSame(0, $exit, 'Fallback subprocess failed: ' . $stderr);
 
         return $stdout;
     }

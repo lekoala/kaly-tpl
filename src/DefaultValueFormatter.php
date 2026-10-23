@@ -16,6 +16,7 @@ final readonly class DefaultValueFormatter implements ValueFormatter
 
     /**
      * ICU formatters are expensive to build, so they are reused across calls.
+     * Clones share these caches; keys only depend on immutable configuration and call options.
      *
      * @var \ArrayObject<string, \NumberFormatter>
      */
@@ -40,6 +41,8 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         ) {
             throw new ViewUsageException(sprintf('Invalid locale "%s".', $locale));
         }
+
+        $this->assertCurrency($currency);
 
         /** @var \ArrayObject<string, \NumberFormatter> $numberFormatters */
         $numberFormatters = new \ArrayObject();
@@ -88,11 +91,13 @@ final readonly class DefaultValueFormatter implements ValueFormatter
 
     public function money(int|float|string|null $amount, ?string $currency = null): string
     {
+        $currency ??= $this->currency;
+        $this->assertCurrency($currency);
+
         if ($amount === null || $amount === '') {
             return '';
         }
 
-        $currency ??= $this->currency;
         $value = $this->numericValue($amount);
 
         if (class_exists(\NumberFormatter::class)) {
@@ -266,6 +271,13 @@ final readonly class DefaultValueFormatter implements ValueFormatter
         }
 
         return $number;
+    }
+
+    private function assertCurrency(string $currency): void
+    {
+        if (!preg_match('/^[A-Za-z]{3}$/D', $currency)) {
+            throw new ViewUsageException(sprintf('Invalid currency "%s": expected three ASCII letters.', $currency));
+        }
     }
 
     private function assertDecimals(int $decimals): void

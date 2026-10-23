@@ -54,6 +54,13 @@ final class UrlListAttributeTest extends TestCase
         );
     }
 
+    public function testWidthsLargerThanIntegersRemainDistinct(): void
+    {
+        $value = '/a.jpg 999999999999999999999999w, /b.jpg 999999999999999999999998w';
+
+        $this->assertSame(' srcset="' . $value . '"', (string) (new DefaultEscaper())->attrs(['srcset' => $value]));
+    }
+
     public function testAttributeIsOmittedWhenNoCandidateIsLeft(): void
     {
         $escaper = new DefaultEscaper();
@@ -76,6 +83,12 @@ final class UrlListAttributeTest extends TestCase
         yield 'equivalent densities' => ['/a.jpg 1x, /b.jpg 1.0x', 'duplicate descriptor "1.0x"'];
         yield 'equivalent exponent' => ['/a.jpg 2x, /b.jpg 0.2e1x', 'duplicate descriptor "0.2e1x"'];
         yield 'equivalent widths' => ['/a.jpg 480w, /b.jpg 0480w', 'duplicate descriptor "0480w"'];
+        yield 'equivalent huge widths' => [
+            '/a.jpg 999999999999999999999999w, /b.jpg 0999999999999999999999999w',
+            'duplicate descriptor',
+        ];
+        yield 'refused explicit duplicate' => ['javascript:a 1x, /a.jpg 1x', 'duplicate descriptor'];
+        yield 'refused implicit duplicate' => ['javascript:a, /a.jpg', 'duplicate descriptor'];
         yield 'zero width' => ['/a.jpg 000w', 'unknown descriptor "000w"'];
         yield 'negative density' => ['/a.jpg -1x', 'unknown descriptor "-1x"'];
         yield 'infinite density' => ['/a.jpg 1e999x', 'unknown descriptor "1e999x"'];

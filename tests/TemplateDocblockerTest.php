@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Tpl\Tests;
 
 use Kaly\Tpl\TemplateDocblocker;
+use Kaly\Tpl\ViewEngine;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class TemplateDocblockerTest extends TestCase
@@ -91,6 +93,46 @@ final class TemplateDocblockerTest extends TestCase
 
         $this->assertFalse($changed);
         $this->assertSame($original, file_get_contents($file));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function templateHeaders(): iterable
+    {
+        yield 'short echo' => ['<?= "hello" ?>'];
+        yield 'inline PHP' => ['<?php echo "hello"; ?>'];
+        yield 'strict types' => ['<?php declare(strict_types=1); echo "hello"; ?>'];
+        yield 'empty PHP block' => ["<?php\n?>\nhello"];
+        yield 'HTML first' => ['hello'];
+    }
+
+    #[DataProvider('templateHeaders')]
+    public function testHeaderUpdatesPreserveRenderingAndAreIdempotent(string $template): void
+    {
+        $dir = $this->views(['index.phtml' => $template]);
+        $file = $dir . '/index.phtml';
+        $blocker = TemplateDocblocker::syncManaged();
+        $engine = new ViewEngine($dir);
+
+        $this->assertTrue($blocker->update($file, ['title' => null]));
+        $this->assertSame('hello', (string) $engine->render('index'));
+        $this->assertTrue($blocker->update($file, ['title' => 'hello']));
+        $contents = file_get_contents($file);
+        $this->assertSame('hello', (string) $engine->render('index'));
+        $this->assertFalse($blocker->update($file, ['title' => 'hello']));
+        $this->assertSame($contents, file_get_contents($file));
+    }
+
+    public function testDocblockRewriteRefreshesPreviouslyCachedCode(): void
+    {
+        $dir = $this->views(['index.phtml' => '<?php echo "before"; ?>']);
+        $file = $dir . '/index.phtml';
+        $engine = new ViewEngine($dir);
+
+        $this->assertSame('before', (string) $engine->render('index'));
+        file_put_contents($file, '<?php echo "after"; ?>');
+        TemplateDocblocker::syncManaged()->update($file, []);
+
+        $this->assertSame('after', (string) $engine->render('index'));
     }
 
     private function managed(string $varLines): string

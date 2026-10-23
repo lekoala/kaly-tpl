@@ -12,6 +12,8 @@ the helper matching the destination.
 
 The default URL helper accepts relative URLs and the `http`, `https`, `mailto` and `tel` schemes. Unsafe schemes,
 protocol-relative URLs and URLs containing ASCII control characters are replaced with `#`.
+Two leading slashes or backslashes (including mixed pairs) are treated as protocol-relative and rejected. A single
+leading backslash remains an origin-relative path in HTTP(S) contexts; it does not select an external host.
 
 ## Attribute bags
 
@@ -32,6 +34,10 @@ Attribute bags handle escaping and HTML boolean attributes in one place:
 - Other boolean values, including ARIA and data attributes, are rendered as `"true"` or `"false"`.
 - Common URL attributes such as `href`, `src` and `action` are passed through the URL policy automatically.
 - Inline event-handler attributes and `srcdoc` are rejected by `attrs()` because they require a different output context.
+- `srcset` and `imagesrcset` are validated as complete candidate lists before refused URLs are dropped. Invalid
+  descriptors, duplicate descriptors (including implicit `1x`) and mixed width/density descriptors throw even when
+  a candidate's URL would be refused. For example, `javascript:x 1x, /photo.jpg 1x` throws for the duplicate.
+- `ping` keeps only HTTP(S) URLs, including relative URLs. URL-list attributes are omitted when no URL remains.
 
 ## Composing escaping helpers
 
@@ -67,8 +73,13 @@ Echo them directly only when they are the entire attribute value:
      style="<?= $v->styleVars(['--progress' => $progress]) ?>">
 ```
 
-`styleVars()` is deliberately narrow: it only builds CSS custom-property declarations and rejects declaration separators.
-CSS values themselves should still come from application-controlled conventions rather than arbitrary user CSS.
+`styleVars()` and an array passed as `attrs(['style' => [...]])` only build CSS custom-property declarations. They
+validate property names and reject `;`, `{` and `}` in values, then escape the result for the HTML attribute.
+They do not sanitize CSS values: functions such as `url(...)` and CSS escapes can still cause network requests when
+the variable is used. Validate values against application-specific rules (for example a numeric range or a color allowlist).
+
+A string or `Stringable` passed as `attrs(['style' => $css])` receives HTML attribute escaping only, with no CSS
+validation. Use application-controlled CSS for this form. HTML escaping alone does not make arbitrary user CSS safe.
 
 ### JSON in a script vs JSON in an attribute
 

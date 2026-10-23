@@ -28,10 +28,12 @@ Keep exact amounts in the domain and billing code; templates only present them. 
 exact rendering matters.
 
 Durations are always deterministic and locale-neutral, regardless of `ext-intl`: `duration()` renders a clock-style
-`m:ss` or `h:mm:ss` (hours unbounded) by default, and a spelled-out `1 h 2 min 3 s` form with the `long` style. It
+`m:ss` or `h:mm:ss` (hours can exceed 24) by default, and a spelled-out `1 h 2 min 3 s` form with the `long` style. It
 accepts a number of seconds or a `DateInterval` that resolves to a fixed duration; intervals carrying years or months
 without a `days` total are calendar-relative and throw. For richer temporal types (civil time-of-day, calendar
 intervals), inject an application-level formatter as a global instead of widening `time()` to `mixed`.
+Seconds are rounded to the nearest integer; the rounded absolute value must be below `(float) PHP_INT_MAX`.
+Larger values throw, including `PHP_INT_MAX` itself, which rounds up when converted to a float on 64-bit platforms.
 
 A configured timezone is always applied, including when the input string already carries an explicit offset, so a string
 and the equivalent `DateTimeInterface` object format identically.
@@ -44,6 +46,8 @@ $view->locale('fr_BE', currency: 'EUR', timezone: 'Europe/Brussels');
 
 The locale is validated right away (`fr_BE`, `fr-BE`, `zh_Hant_TW`, `en_US@currency=EUR`…), since ICU accepts almost
 any string and would only fail, or silently fall back, at the first render.
+The default currency and each `money()` override must contain exactly three ASCII letters (case-insensitive).
+This checks the shape of an ISO 4217 code, not membership in a currency registry.
 
 ## Custom strategies
 

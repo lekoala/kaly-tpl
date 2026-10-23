@@ -29,6 +29,10 @@ final class EscaperTest extends TestCase
         $this->assertSame('#', $escaper->url("java\tscript:alert(1)"));
         $this->assertSame('#', $escaper->url('//example.test/path'));
         $this->assertSame('#', $escaper->url('\\\\example.test/path'));
+        $this->assertSame('#', $escaper->url('/\\example.test/path'));
+        $this->assertSame('#', $escaper->url('\\/example.test/path'));
+        $this->assertSame('#', $escaper->url('///example.test/path'));
+        $this->assertSame('\\example.test/path', $escaper->url('\\example.test/path'));
         $this->assertSame('/patients?status=pending&amp;page=2', $escaper->url('/patients?status=pending&page=2'));
         $this->assertSame('https://example.test/a?b=1&amp;c=2', $escaper->url('https://example.test/a?b=1&c=2'));
     }
