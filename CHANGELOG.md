@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- **Per-render formatter.** `ViewEngine::render()` accepts `formatter:` for the current render only: the page, its
+  `inc()` and `each()` partials and its layout chain all use that formatter, while the engine keeps its configured
+  default. A nested `render()` resolves its own formatter, so a shared engine can serve several locales in a row
+  without being cloned or mutated. Keep `DefaultValueFormatter` instances per locale to retain the ICU formatter
+  caches across renders.
+
+### Changed
+
+- **Breaking for direct `renderPartial()` callers:** the `@internal` method takes the render's formatter as a fourth
+  argument. `TemplateRuntime` passes it, so `inc()` and `each()` never fall back to the engine default mid-render.
+
+### Docs
+
+- The `Ui::avatar()` recipe escapes the avatar url before building the image tag: `Html` trusts its markup, so the
+  previous example taught building an attribute from an unescaped value.
+
 ## 0.3.1
 
 ### Fixed
