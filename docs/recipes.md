@@ -8,15 +8,21 @@ templates:
 ```php
 final class Ui
 {
-    public function __construct(private AvatarGenerator $avatars) {}
+    public function __construct(
+        private AvatarGenerator $avatars,
+        private Escaper $escaper,
+    ) {}
 
     public function avatar(User $user, int $size = 32): Html
     {
-        return new Html(sprintf('<img src="%s" alt="">', $this->avatars->url($user, $size)));
+        return new Html(sprintf(
+            '<img src="%s" alt="">',
+            $this->escaper->attr($this->avatars->url($user, $size)),
+        ));
     }
 }
 
-$view->addGlobal('ui', new Ui($avatars));
+$view->addGlobal('ui', new Ui($avatars, new DefaultEscaper()));
 ```
 
 ```php
@@ -26,6 +32,10 @@ $view->addGlobal('ui', new Ui($avatars));
 Because `$ui` is a real object, the IDE completes `avatar()` and its argument types. This is preferable to growing `$v`
 or introducing a function registry: it keeps `$v` as the small, stable rendering contract and lets the application own
 its helpers. Globals are shared by every template, so use them for services, not request data.
+
+`Html` trusts its markup, so a helper building markup from dynamic values must escape them itself: here the avatar url
+goes through the escaper's attribute escaping before entering the `img` tag. A helper receiving an `Html` value (for
+instance a `$v->attrs([...])` result) can embed it as is: it is already escaped for its context.
 
 ## Components with captures
 
