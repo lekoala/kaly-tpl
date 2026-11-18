@@ -102,7 +102,9 @@ final class TemplateRuntime implements HtmlView
 
     public function inc(string $template, array $data = []): Html
     {
-        return $this->engine->renderPartial($template, $data, $this->context);
+        // The runtime carries the formatter of its own render, so an include
+        // (direct or through each()) never falls back to the engine default.
+        return $this->engine->renderPartial($template, $data, $this->context, $this->formatter);
     }
 
     public function each(

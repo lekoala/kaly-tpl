@@ -122,11 +122,17 @@ final class ViewEngine
         ?string $layout = null,
         array $layoutData = [],
         array $sharedData = [],
+        ?ValueFormatter $formatter = null,
     ): Html {
         $context = null;
 
         try {
             $this->assertDataNames($sharedData);
+
+            // One formatter for the whole render: the page, its partials and its
+            // layout chain all see the same one. A nested render() resolves its
+            // own and never inherits the surrounding render's.
+            $formatter ??= $this->formatter;
 
             $context = new RenderContext($sharedData);
             $context->assertNoSharedCollision($this->globals, 'Shared render data conflicts with globals');
@@ -134,7 +140,7 @@ final class ViewEngine
                 $context->setLayout($layout, $layoutData);
             }
 
-            $content = $this->renderTemplate($template, $data, $context, allowLayout: true);
+            $content = $this->renderTemplate($template, $data, $context, allowLayout: true, formatter: $formatter);
             $context->setBlock('content', $content);
 
             /** @var array<string, true> $seenLayouts */
@@ -159,6 +165,7 @@ final class ViewEngine
                     [...$context->consumeLayoutData(), 'content' => $content],
                     $context,
                     allowLayout: true,
+                    formatter: $formatter,
                 );
                 $context->setBlock('content', $content);
             }
@@ -176,16 +183,27 @@ final class ViewEngine
      *
      * @param array<string, mixed> $data
      */
-    public function renderPartial(string $template, array $data, RenderContext $context): Html
-    {
-        return $this->renderTemplate($template, $data, $context, allowLayout: false);
+    public function renderPartial(
+        string $template,
+        array $data,
+        RenderContext $context,
+        ?ValueFormatter $formatter = null,
+    ): Html {
+        return $this->renderTemplate($template, $data, $context, allowLayout: false, formatter: $formatter);
     }
 
-    /** @param array<string, mixed> $data */
-    private function renderTemplate(string $template, array $data, RenderContext $context, bool $allowLayout): Html
-    {
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function renderTemplate(
+        string $template,
+        array $data,
+        RenderContext $context,
+        bool $allowLayout,
+        ?ValueFormatter $formatter = null,
+    ): Html {
         $file = $this->resolve($template);
-        $runtime = new TemplateRuntime($this, $context, $this->escaper, $this->formatter, $allowLayout);
+        $runtime = new TemplateRuntime($this, $context, $this->escaper, $formatter ?? $this->formatter, $allowLayout);
 
         /** @param array<string, mixed> $__kalyData */
         $render = static function (

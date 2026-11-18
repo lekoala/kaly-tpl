@@ -49,6 +49,36 @@ any string and would only fail, or silently fall back, at the first render.
 The default currency and each `money()` override must contain exactly three ASCII letters (case-insensitive).
 This checks the shape of an ISO 4217 code, not membership in a currency registry.
 
+`locale()` configures the engine default, shared by every render. `render()` can also take a formatter for the current
+render only:
+
+```php
+$html = (string) $engine->render(
+    'emails/appointment',
+    ['appointment' => $appointment],
+    sharedData: ['i18n' => $translator->withLocale($locale)],
+    formatter: $formatters[$locale],
+);
+```
+
+The whole render — the page, its `inc()` and `each()` partials, its layout chain — uses that formatter, and the engine
+keeps its configured default untouched. A nested `render()` resolves its own formatter and never inherits the
+surrounding render's, so a shared engine can serve several locales in a row without being cloned or mutated:
+
+```php
+$formatters = [
+    'fr' => new DefaultValueFormatter('fr_BE', 'EUR', new DateTimeZone('Europe/Brussels')),
+    'nl' => new DefaultValueFormatter('nl_BE', 'EUR', new DateTimeZone('Europe/Brussels')),
+];
+
+foreach (['fr', 'nl'] as $locale) {
+    $html[$locale] = (string) $engine->render('emails/appointment', $data, formatter: $formatters[$locale]);
+}
+```
+
+Keep the formatter instances around (a map by locale, or a small cache): `DefaultValueFormatter` reuses its ICU
+formatters across calls, an advantage a fresh instance per render would lose.
+
 ## Custom strategies
 
 Escaping and formatting can be replaced without changing the template API:

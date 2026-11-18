@@ -43,11 +43,12 @@ Globals are meant for stable application services and constants, not per-request
 
 ## Passing data
 
-`render(string $template, array $data = [], ?string $layout = null, array $layoutData = [], array $sharedData = [])`
+`render(string $template, array $data = [], ?string $layout = null, array $layoutData = [], array $sharedData = [], ?ValueFormatter $formatter = null)`
 
 - `$data` is passed to the rendered template only.
 - `$layoutData` is passed to the caller-provided `$layout` (see [Layouts](layouts.md#passing-data-to-a-layout)).
 - `$sharedData` is available to the whole render: the page, its includes, its `each()` templates and its layouts.
+- `$formatter` replaces the engine's configured formatter for this render only (see [Formatting](formatting.md)).
 
 The available scopes are:
 
