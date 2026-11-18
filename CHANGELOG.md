@@ -10,15 +10,9 @@
   without being cloned or mutated. Keep `DefaultValueFormatter` instances per locale to retain the ICU formatter
   caches across renders.
 
-### Changed
-
-- **Breaking for direct `renderPartial()` callers:** the `@internal` method takes the render's formatter as a fourth
-  argument. `TemplateRuntime` passes it, so `inc()` and `each()` never fall back to the engine default mid-render.
-
 ### Docs
 
-- The `Ui::avatar()` recipe escapes the avatar url before building the image tag: `Html` trusts its markup, so the
-  previous example taught building an attribute from an unescaped value.
+- The `Ui::avatar()` recipe applies the URL policy and escapes the avatar URL before building the image tag.
 
 ## 0.3.1
 

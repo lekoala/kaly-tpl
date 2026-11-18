@@ -17,7 +17,7 @@ final class Ui
     {
         return new Html(sprintf(
             '<img src="%s" alt="">',
-            $this->escaper->attr($this->avatars->url($user, $size)),
+            $this->escaper->url($this->avatars->url($user, $size)),
         ));
     }
 }
@@ -33,9 +33,9 @@ Because `$ui` is a real object, the IDE completes `avatar()` and its argument ty
 or introducing a function registry: it keeps `$v` as the small, stable rendering contract and lets the application own
 its helpers. Globals are shared by every template, so use them for services, not request data.
 
-`Html` trusts its markup, so a helper building markup from dynamic values must escape them itself: here the avatar url
-goes through the escaper's attribute escaping before entering the `img` tag. A helper receiving an `Html` value (for
-instance a `$v->attrs([...])` result) can embed it as is: it is already escaped for its context.
+`Html` trusts its markup, so a helper building markup from dynamic values must escape them itself. Here `url()` applies
+the URL policy and escapes the avatar URL for the quoted `src` attribute. A helper can insert the result of
+`$v->attrs([...])` directly into the opening tag, where those attributes are already escaped for that context.
 
 ## Components with captures
 
